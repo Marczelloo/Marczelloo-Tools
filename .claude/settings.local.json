@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app:*)",
+      "Bash(pnpm init:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm dlx shadcn@latest init:*)",
+      "Bash(pnpm dlx shadcn@latest add:*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm lint)",
+      "Bash(timeout:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm install:*)",
+      "Bash(pnpm run build:*)",
+      "Bash(pnpm tsc:*)",
+      "Bash(pnpm next build:*)",
+      "Bash(where:*)"
+    ]
+  }
+}

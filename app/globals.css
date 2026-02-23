@@ -1,0 +1,398 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * DESIGN SYSTEM TOKENS
+ * Pure monochrome, dark-first, native app aesthetic
+ * Inspired by Vercel, Linear.app, Raycast
+ */
+
+@layer base {
+  :root {
+    /* ===========================================
+       CORE COLORS (Monochrome Only)
+       =========================================== */
+    --black: #000000;
+    --canvas: #0A0A0B;
+    --surface: #111113;
+    --surface-elevated: #18181B;
+
+    /* ===========================================
+       BACKGROUND COLORS
+       =========================================== */
+    --background-primary: #000000;
+    --background-secondary: #0A0A0B;
+    --background-tertiary: #111113;
+    --background-elevated: #18181B;
+
+    /* ===========================================
+       BORDER COLORS (Subtle translucent white)
+       =========================================== */
+    --border-subtle: rgba(255, 255, 255, 0.05);
+    --border-default: rgba(255, 255, 255, 0.10);
+    --border-emphasis: rgba(255, 255, 255, 0.15);
+    --border-strong: rgba(255, 255, 255, 0.20);
+
+    /* ===========================================
+       TEXT COLORS
+       =========================================== */
+    --text-primary: #FFFFFF;
+    --text-secondary: #A1A1AA;    /* zinc-400 */
+    --text-tertiary: #71717A;     /* zinc-500 */
+    --text-muted: #52525B;        /* zinc-600 */
+    --text-inverse: #000000;
+
+    /* ===========================================
+       STATUS COLORS (Minimal set)
+       =========================================== */
+    --status-success: #22C55E;    /* green-500 */
+    --status-warning: #EAB308;    /* yellow-500 */
+    --status-error: #EF4444;      /* red-500 */
+    --status-info: #A1A1AA;       /* zinc-400 */
+
+    /* ===========================================
+       INTERACTIVE COLORS
+       =========================================== */
+    --interactive-hover: rgba(255, 255, 255, 0.05);
+    --interactive-active: rgba(255, 255, 255, 0.10);
+    --interactive-selected: rgba(255, 255, 255, 0.08);
+
+    /* Primary button */
+    --button-primary-bg: #FFFFFF;
+    --button-primary-text: #000000;
+    --button-primary-hover: #E4E4E7;  /* zinc-200 */
+
+    /* ===========================================
+       SPACING SCALE (8px base)
+       =========================================== */
+    --space-0: 0;
+    --space-0.5: 2px;
+    --space-1: 4px;
+    --space-1.5: 6px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-7: 28px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --space-12: 48px;
+    --space-16: 64px;
+    --space-20: 80px;
+    --space-24: 96px;
+    --space-32: 128px;
+
+    /* ===========================================
+       TYPOGRAPHY SCALE
+       =========================================== */
+    --font-size-xs: 0.75rem;     /* 12px */
+    --font-size-sm: 0.875rem;    /* 14px */
+    --font-size-base: 1rem;      /* 16px */
+    --font-size-lg: 1.125rem;    /* 18px */
+    --font-size-xl: 1.25rem;     /* 20px */
+    --font-size-2xl: 1.5rem;     /* 24px */
+    --font-size-3xl: 1.875rem;   /* 30px */
+    --font-size-4xl: 2.25rem;    /* 36px */
+    --font-size-5xl: 3rem;       /* 48px */
+    --font-size-6xl: 3.75rem;    /* 60px */
+    --font-size-7xl: 4.5rem;     /* 72px */
+
+    /* Font weights */
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+
+    /* Line heights */
+    --line-height-tight: 1.1;
+    --line-height-snug: 1.25;
+    --line-height-normal: 1.5;
+    --line-height-relaxed: 1.75;
+
+    /* ===========================================
+       FONT FAMILIES
+       =========================================== */
+    --font-sans: 'Inter', 'Geist', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+
+    /* ===========================================
+       BORDER RADIUS
+       =========================================== */
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-xl: 12px;
+    --radius-full: 9999px;
+
+    /* ===========================================
+       TRANSITIONS (150-250ms per motion rules)
+       =========================================== */
+    --duration-fast: 150ms;
+    --duration-normal: 200ms;
+    --duration-slow: 250ms;
+    --easing-default: cubic-bezier(0.4, 0, 0.2, 1);
+    --easing-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  }
+
+  /* ===========================================
+     BASE STYLES
+     =========================================== */
+  * {
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+  }
+
+  html {
+    color-scheme: dark;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--background-primary);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-normal);
+    min-height: 100vh;
+  }
+
+  /* Typography defaults */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-tight);
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+  }
+
+  h1 { font-size: var(--font-size-7xl); }
+  h2 { font-size: var(--font-size-4xl); }
+  h3 { font-size: var(--font-size-2xl); }
+  h4 { font-size: var(--font-size-xl); }
+  h5 { font-size: var(--font-size-lg); }
+  h6 { font-size: var(--font-size-base); }
+
+  p {
+    color: var(--text-secondary);
+    line-height: var(--line-height-relaxed);
+  }
+
+  a {
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: color var(--duration-fast) var(--easing-default);
+  }
+
+  a:hover {
+    color: var(--text-secondary);
+  }
+
+  code, pre, .font-mono {
+    font-family: var(--font-mono);
+  }
+
+  code {
+    background-color: var(--surface);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    font-size: 0.9em;
+    color: var(--text-secondary);
+  }
+
+  pre {
+    background-color: var(--surface);
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+    overflow-x: auto;
+    border: 1px solid var(--border-default);
+  }
+
+  /* Focus styles */
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--border-strong);
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: var(--text-primary);
+  }
+
+  /* ===========================================
+     SCROLLBAR STYLES
+     =========================================== */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-default);
+    border-radius: var(--radius-full);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--border-emphasis);
+  }
+}
+
+/* ===========================================
+   COMPONENT LAYER
+   =========================================== */
+@layer components {
+  /* Surface component - for cards, panels */
+  .surface {
+    background-color: var(--surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+  }
+
+  .surface-elevated {
+    background-color: var(--surface-elevated);
+    border: 1px solid var(--border-emphasis);
+    border-radius: var(--radius-sm);
+  }
+
+  /* Primary button */
+  .btn-primary {
+    background-color: var(--button-primary-bg);
+    color: var(--button-primary-text);
+    padding: var(--space-3) var(--space-6);
+    font-weight: var(--font-weight-medium);
+    border-radius: var(--radius-sm);
+    transition: background-color var(--duration-fast) var(--easing-default);
+    border: none;
+    cursor: pointer;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--button-primary-hover);
+  }
+
+  /* Secondary/ghost button */
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--text-secondary);
+    padding: var(--space-3) var(--space-6);
+    font-weight: var(--font-weight-medium);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-default);
+    transition: all var(--duration-fast) var(--easing-default);
+    cursor: pointer;
+  }
+
+  .btn-ghost:hover {
+    background-color: var(--interactive-hover);
+    color: var(--text-primary);
+    border-color: var(--border-emphasis);
+  }
+
+  /* Interactive states */
+  .interactive {
+    transition:
+      background-color var(--duration-fast) var(--easing-default),
+      border-color var(--duration-fast) var(--easing-default);
+  }
+
+  .interactive:hover {
+    background-color: var(--interactive-hover);
+  }
+
+  .interactive:active {
+    background-color: var(--interactive-active);
+  }
+
+  /* Sidebar item states */
+  .sidebar-item {
+    color: var(--text-tertiary);
+    transition: all var(--duration-fast) var(--easing-default);
+  }
+
+  .sidebar-item:hover {
+    color: var(--text-primary);
+    background-color: var(--interactive-hover);
+  }
+
+  .sidebar-item-active {
+    color: var(--text-primary);
+    background-color: var(--interactive-selected);
+    border-left: 2px solid var(--text-primary);
+  }
+}
+
+/* ===========================================
+   UTILITY LAYER
+   =========================================== */
+@layer utilities {
+  /* Grid pattern background */
+  .bg-grid-pattern {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  /* Dot pattern background */
+  .bg-dot-pattern {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn var(--duration-normal) var(--easing-default);
+  }
+
+  .animate-fade-out {
+    animation: fadeOut var(--duration-normal) var(--easing-default);
+  }
+
+  .animate-slide-up {
+    animation: slideUp var(--duration-normal) var(--easing-default);
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Transition utilities */
+  .transition-colors-fast {
+    transition:
+      color var(--duration-fast) var(--easing-default),
+      background-color var(--duration-fast) var(--easing-default),
+      border-color var(--duration-fast) var(--easing-default);
+  }
+
+  .transition-transform-fast {
+    transition: transform var(--duration-fast) var(--easing-default);
+  }
+}
