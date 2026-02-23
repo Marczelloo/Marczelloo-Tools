@@ -7,6 +7,7 @@ import { ToolNavigationProvider, useToolNavigation } from "@/lib/tool-navigation
 import { toolRegistry } from "@/lib/featureFlags";
 import type { ReactNode } from "react";
 import { ChevronRight, ArrowUpRight } from "lucide-react";
+import Link from "next/link";
 
 // ============================================================================
 // TYPES
@@ -56,6 +57,12 @@ function StatusBar(): React.JSX.Element {
         <span className="font-mono">{currentTool?.id ?? "dashboard"}</span>
         <span>v1.0.0</span>
       </div>
+      <Link
+        href="/app/privacy"
+        className="hover:text-zinc-400 transition-colors"
+      >
+        Privacy
+      </Link>
     </footer>
   );
 }

@@ -42,3 +42,5 @@ coverage
 
 # Misc
 *.pem
+
+*.md
