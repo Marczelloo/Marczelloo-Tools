@@ -30,215 +30,259 @@ Every decision must align with:
 
 ---
 
-## 1. Core Architecture
+## 1. Quick Start
 
-This is a single **Next.js App Router** application with modular backend logic.
+```bash
+pnpm install          # Install dependencies
+pnpm dev              # Start dev server (http://localhost:3000)
+pnpm build            # Production build
+pnpm start            # Start production server
+pnpm lint             # Lint code
+pnpm typecheck        # TypeScript check
+```
+
+**Package Manager:** pnpm (required)
+
+---
+
+## 2. Core Architecture
+
+This is a single **Next.js App Router** application with:
 
 - No microservices for now
 - No unnecessary abstraction
-- Everything must be production-ready
+- Everything production-ready
+
+**Tech Stack:** Next.js 15, React 19, TypeScript, Tailwind CSS, Zod
 
 ---
 
-## 2. Folder Structure (Mandatory)
+## 3. Folder Structure (Actual)
 
 ```
 /app
-  /(landing)
-  /(app)
-  /layout.tsx
-  /[category]/[tool]/page.tsx
+  /(landing)          # Public marketing page
+  /(app)              # Main app route group
+    /layout.tsx       # App layout with AppShell
+    /page.tsx         # Dashboard homepage
   /api
-    /tools/[tool]/route.ts
-  /health
-  /telemetry
+    /tools/[tool]/route.ts       # Tool API endpoints
+    /download/[tool]/[filename]  # File download handler
+  /app                # Tool page components (note: double "app")
+    /{category}/{tool}/page.tsx
+  /globals.css        # Design tokens, slider styles
+  /layout.tsx         # Root layout
 
 /components
   /layout
-  /tool-layouts
-  /tool-ui
-  /shared
+    AppShell.tsx           # Main layout wrapper
+    tool-content-renderer.tsx  # Dynamic tool loading
+    sidebar.tsx            # Navigation sidebar
+    page-header.tsx        # Page header component
+  /tool-layouts/           # Layout wrappers (upload-center, etc.)
+  /tool-ui/                # Reusable tool components
+  /ui/                     # Base UI components
+  /shared/                 # Shared components
 
 /lib
-  /tools
-    /[tool-name]
-      config.ts
-      schema.ts
-      processor.ts
-      limits.ts
-  /security
+  /security/upload.ts      # Upload validation middleware
   /ffmpeg
-  /telemetry
-  /featureFlags.ts
-  /utils
+    runner.ts              # FFmpeg wrapper
+    config.ts              # Codec configurations
+  /featureFlags.ts         # Tool registry (ADD NEW TOOLS HERE)
+  /tool-navigation-context.tsx   # Route sync for SPA navigation
+  /tool-context.tsx        # Theme/accent context
+  /utils.ts                # Utility functions (cn, etc.)
 
-/tmp (gitignored)
+/tmp (gitignored)         # Temporary file storage
 ```
-
-> No deviation without strong reason.
 
 ---
 
-## 3. Tool Module System (Strict Rules)
+## 4. Tool Implementation Pattern
 
-Each tool must be **isolated** and contain:
+### Adding a New Tool
 
-### `config.ts`
+**1. Create API Route** (`/app/api/tools/[tool-id]/route.ts`)
+- Handle file upload via `processUpload()` from `@/lib/security/upload`
+- Validate with Zod
+- Process with FFmpeg or other logic
+- Return `{ success: true, conversion: {...} }` or error
+- Add to `TOOL_DIRECTORIES` in download route
 
-Defines:
+**2. Create Page Component** (`/app/app/[category]/[tool-id]/page.tsx`)
+- Use `PageHeader`, `Surface`, `Container` from `@/components/layout`
+- Use monochrome colors only (see Section 6)
+- Export default with `ToolProvider` wrapper
 
-- `id`
-- `category`
-- `accent`
-- `layout`
-- `limits`
-- `enabled` flag
+**3. Register Tool** (in `/lib/featureFlags.ts`)
+- Add to `toolRegistry` array with `ToolDefinition`
 
-### `schema.ts`
+**4. Add to Renderer** (in `/components/layout/tool-content-renderer.tsx`)
+- Add dynamic import to `toolComponents` map
 
-- Zod validation
-- No request enters processor without validation
+**5. Add Sidebar Icon** (in `/components/layout/sidebar.tsx`)
+- Add to `toolIconMap`
 
-### `processor.ts`
+**6. Add Download Support** (in `/app/api/download/[tool]/[filename]/route.ts`)
+- Add to `TOOL_DIRECTORIES`
+- Add MIME type if needed
 
-- Pure processing logic
-- No UI code
-- No request parsing
-- No side effects outside defined temp directories
+### File Upload Pattern
 
-### `limits.ts`
+```tsx
+import { processUpload, DEFAULT_UPLOAD_CONFIGS } from "@/lib/security/upload";
 
-Defines:
+const UPLOAD_CONFIG = {
+  ...DEFAULT_UPLOAD_CONFIGS.image,
+  allowedMimeTypes: ["image/png", "image/jpeg"],
+  allowedExtensions: ["png", "jpg", "jpeg"],
+  uploadDir: "./tmp/uploads/my-tool",
+  maxSizeBytes: 50 * 1024 * 1024,
+};
 
-- Max file size
-- Max duration
-- Timeout
-- Concurrency weight
+const uploadResult = await processUpload(file, UPLOAD_CONFIG);
+// Returns: { filename, filepath, originalName, mimeType, size }
+```
 
 ---
 
-## 4. Layout System (Dynamic but Controlled)
+## 5. Navigation Architecture
 
-Allowed layout types:
+**Dual Routing System:**
 
-- `"upload-center"`
-- `"split-panel"`
-- `"form-heavy"`
-- `"live-playground"`
+1. **Direct URL Access** (`/app/image/image-converter`)
+   - Next.js renders the page component directly
+   - Used for fresh page loads, bookmarks, sharing
 
-Each tool **MUST** declare layout type in config.
+2. **Sidebar Navigation** (SPA-style)
+   - `ToolNavigationProvider` syncs `currentTool` with URL via `usePathname()`
+   - `ToolContentRenderer` dynamically loads tool components
+   - Prevents double-rendering when on tool routes
 
-Layout components exist in `/components/tool-layouts/`
-
-Rules:
-
-- Tools inject content into standardized layout wrappers
-- No custom layouts per tool
-- No freestyle composition
-
----
-
-## 5. Design System (MONOCHROME ONLY - CRITICAL)
-
-### Color Palette (NO COLORS - Monochrome Only)
-
-| Element | Tailwind Class | Hex |
-|---------|---------------|-----|
-| App Background | `bg-black` | `#000000` |
-| Elevated Surfaces | `bg-zinc-950` | `#09090B` |
-| Cards/Panels | `bg-zinc-900` | `#18181B` |
-| Primary Text | `text-white` | `#FFFFFF` |
-| Secondary Text | `text-zinc-400` | `#A1A1AA` |
-| Muted Text | `text-zinc-500` | `#71717A` |
-| Borders | `border-white/10` | - |
-| Hover States | `hover:bg-white/5` | - |
-
-### Typography
-
-- Primary: Inter, Geist, or system-ui
-- Monospace: font-mono for technical data, labels, hashes
-- No decorative fonts
-- No gradient text
-
-### Spacing
-
-- **8px system only**
-- No random margins
+**Key Context:** `useToolNavigation()` from `@/lib/tool-navigation-context`
+- `currentTool`: Currently active tool (synced with URL)
+- `isViewingTool`: Boolean for conditional rendering
+- `navigateToTool(id)`: Sidebar click handler
 
 ---
 
-## 5.5 UI Design System (CRITICAL - MONOCHROME ONLY)
+## 6. Design System (MONOCHROME ONLY)
 
-**ABSOLUTELY NO COLORS. NO BLUES, NO PURPLES, NO CYANS, NO GREENS, NO REDS, NO ORANGES.**
+**ABSOLUTELY NO COLORS.** Use only black, white, zinc grays.
 
-**USE ONLY: Black, White, Zinc grays, and translucent white borders.**
+### Color Palette
 
-### Text Colors
-```
-text-white          - Primary text (white)
-text-zinc-400       - Secondary text (silver/gray)
-text-zinc-500       - Muted text (darker gray)
-text-zinc-600       - Tertiary text (subtle)
-```
+| Element | Class | Hex |
+|---------|-------|-----|
+| Background | `bg-black` | #000000 |
+| Elevated | `bg-zinc-950` | #09090B |
+| Cards | `bg-zinc-900` | #18181B |
+| Primary Text | `text-white` | #FFFFFF |
+| Secondary Text | `text-zinc-400` | #A1A1AA |
+| Muted Text | `text-zinc-500` | #71717A |
+| Borders | `border-white/10` | rgba(255,255,255,0.1) |
+| Hover | `hover:bg-white/5` | rgba(255,255,255,0.05) |
 
-### Backgrounds
-```
-bg-black            - App background (pure black)
-bg-zinc-950         - Elevated surfaces (very dark gray)
-bg-zinc-900         - Cards/panels (dark gray)
-bg-white/5          - Hover states (faint white)
-bg-white/10         - Active states
-```
-
-### Borders
-```
-border-white/10     - Default border (subtle)
-border-white/20     - Emphasized border
-border-zinc-800     - Alternative border
+### Primary Buttons
+```tsx
+className="bg-white text-black hover:bg-zinc-200"
 ```
 
-### Primary Buttons (NO ACCENT COLORS)
-```
-bg-white text-black hover:bg-zinc-200
-```
-
-### Secondary/Outline Buttons
-```
-bg-transparent border border-white/10 text-zinc-400 hover:bg-white/5 hover:text-white
+### Secondary Buttons
+```tsx
+className="bg-transparent border border-white/10 text-zinc-400 hover:bg-white/5 hover:text-white"
 ```
 
-### Error/Warning States (USE ZINC, NOT RED)
-```
-bg-zinc-900 border border-zinc-700 text-zinc-300
-```
-
-### Success States (USE ZINC, NOT GREEN)
-```
-bg-zinc-900 border border-zinc-600 text-zinc-200
+### Error/Success States (USE ZINC, NOT COLORS)
+```tsx
+// Error
+className="bg-zinc-900 border border-zinc-700 text-zinc-300"
+// Success
+className="bg-zinc-900 border border-zinc-600 text-zinc-200"
 ```
 
-### File Upload Area
-```
-border-2 border-dashed border-white/10 hover:border-white/20 bg-zinc-950
+### Range Sliders
+Use global CSS in `app/globals.css` - no inline styling needed. Sliders are monochrome by default.
+
+---
+
+## 7. Security Rules
+
+### Upload Validation (Required)
+
+```ts
+import { processUpload, DEFAULT_UPLOAD_CONFIGS } from "@/lib/security/upload";
+
+// Must specify:
+- allowedMimeTypes (whitelist)
+- allowedExtensions (whitelist)
+- maxSizeBytes
+- uploadDir (inside ./tmp)
 ```
 
-### Form Fieldset Pattern
-```
-<fieldset className="mb-6">
-  <legend className="text-lg font-semibold text-white mb-4">
-    1. Section Title
-  </legend>
-  {/* Content */}
-</fieldset>
+### Processing Rules
+
+- No shell interpolation
+- Strict parameter building for FFmpeg
+- Timeout enforcement
+- UUID filenames only (never use original names)
+
+### File System
+
+- Only inside `/tmp`
+- Auto-delete after download (handled by download route)
+
+---
+
+## 8. Feature Flags
+
+**Location:** `/lib/featureFlags.ts`
+
+**Tool Registry:**
+```ts
+export const toolRegistry: readonly ToolDefinition[] = [
+  {
+    id: "my-tool",
+    name: "My Tool",
+    description: "...",
+    category: "image" | "media" | "document" | "web" | "dev",
+    accent: "blue" | "cyan" | ... // For sidebar icon only
+    layout: "upload-center" | "split-panel" | "form-heavy" | "live-playground",
+    enabled: true,
+    route: "/app/image/my-tool",
+    maxFileSize: 50,
+    new: true,  // optional "New" badge
+  },
+  // ...
+];
 ```
 
-### Active/Selected State (NO COLORS)
-```
-bg-white/5 text-white border-l-2 border-white
+**Helper Functions:**
+- `isToolEnabled(toolId)` - Check if tool enabled
+- `getToolById(id)` - Get tool config
+- `getToolsByCategory(category)` - Filter by category
+
+---
+
+## 9. Reusable Components
+
+### FileDropZone (`@/components/tool-ui/FileDropZone`)
+
+```tsx
+<FileDropZone
+  onFileSelect={setFile}
+  accept="image/png,image/jpeg"
+  maxSize={50 * 1024 * 1024}
+  fileType="image"
+  maxFileSizeLabel="Max 50MB"
+  currentFile={file}
+/>
 ```
 
 ### Layout Components
-```
+
+```tsx
 <Container size="md" className="max-w-2xl mx-auto">
   <Surface variant="elevated" padding="lg">
     {/* Tool content */}
@@ -248,218 +292,96 @@ bg-white/5 text-white border-l-2 border-white
 
 ---
 
-## 6. Motion Rules (Anti AI-Slop)
+## 10. FFmpeg Usage
 
-### Allowed
+```ts
+import { runFFmpeg, validateInputFile } from "@/lib/ffmpeg/runner";
 
-- Fade (150–250ms)
+// Validate input file exists
+await validateInputFile(uploadResult.filepath);
+
+// Run FFmpeg with timeout
+const result = await runFFmpeg(
+  ["-y", "-i", inputPath, "-c:v", "libwebp", outputPath],
+  { timeout: 2 * 60 * 1000, workDir: "./tmp/ffmpeg" }
+);
+
+if (!result.success) {
+  // Handle error (result.timedOut, result.error, result.stderr)
+}
+```
+
+---
+
+## 11. Code Quality
+
+**Required:**
+- Strict TypeScript (no `any`)
+- Zod validation on all API inputs
+- Proper error handling (no silent swallowing)
+- Separation of concerns (API vs UI)
+
+**Forbidden:**
+- Business logic in React components
+- Hardcoded limits (use constants)
+- Unsafe `child_process` (use FFmpeg wrapper)
+
+---
+
+## 12. Motion Rules
+
+**Allowed:**
+- Fade (150-250ms)
 - Subtle translate (max 10px)
 - Progress animations
 - Hover micro-feedback
 
-### Forbidden
-
+**Forbidden:**
 - Bounce springs
-- Parallax heavy layers
 - Floating blobs
 - Infinite animated backgrounds
-- Random particle effects
-- Scroll-jank
-
-Every animation must serve:
-
-- Orientation
-- Feedback
-- Continuity
-- Rare subtle delight
 
 > If animation has no job, remove it.
 
 ---
 
-## 7. Security Rules (Critical)
-
-### Upload Validation
-
-- Check MIME
-- Check extension
-- Enforce max size
-- Generate random file names (UUID)
-- Never reuse original file names
-
-### Processing
-
-- No shell interpolation
-- Strict parameter building
-- Timeout enforcement
-- CPU usage controlled
-- Memory guarded
-
-### File System
-
-- Only inside `/tmp`
-- Auto-delete after 20 minutes
-- Cleanup worker must run
-
-### Rate Limiting
-
-- Per IP
-- Per tool
-- Heavy tool concurrency limit
-
-### Headers
-
-- CSP
-- X-Frame-Options
-- No MIME sniff
-- No open CORS
-
-> **Security > Convenience.**
-
----
-
-## 8. URL Downloader Rules (Legal Safe Mode)
+## 13. URL Downloader Rules (Legal Safe Mode)
 
 UI must say:
-
 > "Download media from public URL"
 
-Must **NOT**:
-
-- Mention specific platforms
-- Use brand names
-- Use platform logos
-
 Must include:
-
 > "You must have rights to download this content."
 
-No SEO targeting specific platforms.
+No platform names, logos, or SEO targeting specific services.
 
 ---
 
-## 9. Feature Flags
+## 14. Common Gotchas
 
-Centralized in `/lib/featureFlags.ts`
+1. **Double "app" in path:** Tool pages are at `/app/app/{category}/{tool}/` — this is correct due to Next.js route groups.
 
-Feature flags must control:
+2. **Tool not showing:** After adding a tool, you must update 4 places: `featureFlags.ts`, `tool-content-renderer.tsx`, `sidebar.tsx`, and download route.
 
-- Sidebar visibility
-- Route access
-- API execution
+3. **Slider colors:** Don't style sliders manually — use the global CSS in `app/globals.css` for consistent monochrome styling.
 
-No hard-coded enabled tools.
+4. **Accent colors:** The `accent` field in tool config is ONLY for sidebar icon reference. Don't use it for UI styling — use monochrome only.
+
+5. **File uploads:** Always use `processUpload()` from security module. Never trust client-side validation only.
 
 ---
 
-## 10. Performance Limits (Raspberry Pi)
-
-Defaults:
+## 15. Performance Limits
 
 | Limit | Value |
 |-------|-------|
-| Max file size | 200MB |
-| Max heavy jobs concurrent | 2 |
-| Max processing time | 5 min |
-
-- Reject unsupported codecs
-- Agent must implement graceful rejection
+| Max file size | 200MB (configurable per tool) |
+| Max processing time | 5 minutes |
+| Max concurrent heavy jobs | 2 |
 
 ---
 
-## 11. Telemetry
-
-### Allowed
-
-- Tool usage count
-- Processing time
-- Error rate
-- File size category
-
-### Forbidden
-
-- Storing user files
-- Storing file content
-- Storing personal data
-
-> Telemetry must be **anonymous**.
-
----
-
-## 12. SEO Rules
-
-Each tool page must have:
-
-- Unique title
-- Unique meta description
-- Proper H1
-- FAQ structured data
-- Canonical tag
-- OpenGraph data
-
-Landing page must:
-
-- Contain long-form SEO section
-- Internal linking to tools
-- Structured layout
-
-No keyword stuffing.
-
----
-
-## 13. Monetization
-
-AdSense placement:
-
-- 1 top
-- 1 bottom
-- Never intrusive
-- No popup
-- No interstitial
-
-> UI must not look spammy.
-
----
-
-## 14. Code Quality Rules
-
-### Mandatory
-
-- Strict TypeScript
-- No `any`
-- No large functions
-- Separation of concerns
-- Pure processors
-- Reusable UI components
-- Zod validation everywhere
-
-### Forbidden
-
-- Business logic inside React components
-- Hardcoded limits
-- Unsafe `child_process` usage
-- Unbounded loops
-- Silent error swallowing
-
-> Errors must be handled and logged.
-
----
-
-## 15. Scalability Future-Proofing
-
-Architecture must allow:
-
-- Queue system later
-- Worker extraction
-- Pro tier
-- API exposure
-- Feature rollout
-
-> No architectural dead ends.
-
----
-
-## 16. Product Feel Intent
+## 16. Product Feel
 
 The platform must feel:
 
@@ -469,41 +391,6 @@ The platform must feel:
 - Intentional
 - Structured
 
-Not:
+**NOT:** Experimental, playful, overdesigned
 
-- Experimental
-- Playful
-- Overdesigned
-
-> It should feel like: **"Serious online utility platform."**
-
----
-
-## 17. Absolute Forbidden
-
-- Random UI generation
-- Inconsistent spacing
-- Multiple design systems
-- Mixing component libraries
-- Inline styles chaos
-- Copy-paste patterns without abstraction
-- Overengineering microservices
-- Storing user files long-term
-- **ANY USE OF COLORS** (blue, purple, cyan, green, red, orange, etc.)
-- Emojis in UI
-- Colored accent states
-
----
-
-## 18. Implementation Priority
-
-1. Project setup
-2. Layout + sidebar system
-3. Feature flags
-4. First media tool
-5. Image tool
-6. Dev playground tool
-7. URL downloader
-8. SEO + legal
-9. Telemetry
-10. Ads
+> It should feel like: "Serious online utility platform."

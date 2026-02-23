@@ -102,6 +102,7 @@ const toolIconMap: Record<string, React.ComponentType<{ className?: string }>> =
   "mp4-to-mp3": Music,
   "volume-booster": Volume2,
   "image-compressor": Image,
+  "image-converter": Image,
   "background-remover": Wand2,
   "png-to-webp": Image,
   "image-cropper": Scissors,
@@ -131,58 +132,11 @@ const toolIconMap: Record<string, React.ComponentType<{ className?: string }>> =
 };
 
 // ============================================================================
-// ACCENT STYLES
+// ACTIVE STATE STYLES (MONOCHROME ONLY)
 // ============================================================================
 
-type AccentColor = "blue" | "cyan" | "emerald" | "green" | "orange" | "pink" | "yellow" | "red" | "purple";
-
-const accentStyles: Record<AccentColor, { border: string; bg: string; text: string }> = {
-  blue: {
-    border: "border-l-white",
-    bg: "bg-white/5",
-    text: "text-white",
-  },
-  cyan: {
-    border: "border-l-cyan-400",
-    bg: "bg-cyan-400/10",
-    text: "text-cyan-400",
-  },
-  emerald: {
-    border: "border-l-emerald-400",
-    bg: "bg-emerald-400/10",
-    text: "text-emerald-400",
-  },
-  green: {
-    border: "border-l-green-400",
-    bg: "bg-green-400/10",
-    text: "text-green-400",
-  },
-  orange: {
-    border: "border-l-orange-400",
-    bg: "bg-orange-400/10",
-    text: "text-orange-400",
-  },
-  pink: {
-    border: "border-l-pink-400",
-    bg: "bg-pink-400/10",
-    text: "text-pink-400",
-  },
-  yellow: {
-    border: "border-l-yellow-400",
-    bg: "bg-yellow-400/10",
-    text: "text-yellow-400",
-  },
-  red: {
-    border: "border-l-red-400",
-    bg: "bg-red-400/10",
-    text: "text-red-400",
-  },
-  purple: {
-    border: "border-l-purple-400",
-    bg: "bg-purple-400/10",
-    text: "text-purple-400",
-  },
-};
+// All tools use the same monochrome active state per CLAUDE.md architecture
+// No accent colors, no colored borders, only black/white/zinc
 
 // ============================================================================
 // TOOL LINK COMPONENT
@@ -196,8 +150,6 @@ interface ToolLinkProps {
 }
 
 function ToolLink({ tool, isActive, onSelect, collapsed }: ToolLinkProps): React.JSX.Element {
-  const accent = tool.accent as AccentColor;
-  const styles = accentStyles[accent] ?? accentStyles.blue;
   const IconComponent = toolIconMap[tool.id] ?? Cpu;
 
   return (
@@ -206,9 +158,9 @@ function ToolLink({ tool, isActive, onSelect, collapsed }: ToolLinkProps): React
       className={cn(
         "w-full flex items-center gap-3 px-4 py-2 text-sm transition-all",
         "border-l-2",
-        // Default state
+        // Active state (monochrome only)
         isActive
-          ? ["bg-white/5 text-white border-white", styles.border]
+          ? "bg-white/5 text-white border-white"
           : "text-zinc-400 hover:text-white hover:bg-white/5 border-transparent"
       )}
       title={collapsed ? tool.name : undefined}
@@ -355,7 +307,7 @@ export function Sidebar({ className }: SidebarProps): React.JSX.Element | null {
         {!collapsed ? (
           <div className="flex items-center gap-3">
             <Link
-              href="/"
+              href="/app"
               className="flex items-center gap-3 hover:opacity-80 transition-opacity"
             >
               <div className="w-7 h-7 bg-white rounded-sm flex items-center justify-center">
@@ -366,7 +318,7 @@ export function Sidebar({ className }: SidebarProps): React.JSX.Element | null {
           </div>
         ) : (
           <Link
-            href="/"
+            href="/app"
             className="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-white/5 transition-colors mx-auto"
           >
             <div className="w-6 h-6 bg-white rounded-sm flex items-center justify-center">

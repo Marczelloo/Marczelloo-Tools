@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import type { ToolDefinition } from "@/lib/featureFlags";
 
 // ============================================================================
@@ -47,20 +48,42 @@ export function ToolNavigationProvider({
   tools,
   initialToolId,
 }: ToolNavigationProviderProps): React.JSX.Element {
-  // Find initial tool if provided
-  const initialTool = initialToolId
-    ? tools.find((t) => t.id === initialToolId) ?? null
-    : null;
+  const pathname = usePathname();
 
-  const [currentTool, setCurrentTool] = useState<ToolDefinition | null>(initialTool);
+  // Find tool by current pathname for initial state
+  const getInitialTool = (): ToolDefinition | null => {
+    // Check if current pathname matches a tool route
+    const matchingTool = tools.find((t) => t.route === pathname);
+    if (matchingTool && matchingTool.enabled) {
+      return matchingTool;
+    }
+    // Fall back to initialToolId if provided
+    if (initialToolId) {
+      return tools.find((t) => t.id === initialToolId) ?? null;
+    }
+    return null;
+  };
+
+  const [currentTool, setCurrentTool] = useState<ToolDefinition | null>(() => getInitialTool());
+
+  // Sync currentTool with URL
+  useEffect(() => {
+    // Find tool by current pathname
+    const matchingTool = tools.find((t) => t.route === pathname);
+    if (matchingTool && matchingTool.enabled) {
+      setCurrentTool(matchingTool);
+    } else if (pathname === "/app") {
+      setCurrentTool(null);
+    }
+  }, [pathname, tools]);
 
   const navigateToTool = useCallback(
     (toolId: string) => {
       const tool = tools.find((t) => t.id === toolId);
       if (tool && tool.enabled) {
         setCurrentTool(tool);
-        // Update URL without navigation
-        window.history.pushState({}, "", tool.route);
+        // Navigate to tool route using Next.js router
+        window.location.href = tool.route;
       }
     },
     [tools]
@@ -68,8 +91,8 @@ export function ToolNavigationProvider({
 
   const navigateToDashboard = useCallback(() => {
     setCurrentTool(null);
-    // Update URL without navigation
-    window.history.pushState({}, "", "/app");
+    // Navigate to dashboard
+    window.location.href = "/app";
   }, []);
 
   const value: ToolNavigationContextType = {

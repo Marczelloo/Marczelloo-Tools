@@ -65,16 +65,19 @@ function StatusBar(): React.JSX.Element {
 // ============================================================================
 
 function AppShellContent({ children }: { children: ReactNode }): React.JSX.Element {
+  const { currentTool } = useToolNavigation();
+
+  // If we have a currentTool selected, use ToolContentRenderer
+  // Otherwise render children (dashboard)
+  const shouldRenderToolContent = currentTool !== null;
+
   return (
     <div className="h-screen w-full flex overflow-hidden bg-black text-white font-sans antialiased">
       <Sidebar />
       <main className="flex-1 bg-zinc-950 flex flex-col overflow-hidden min-w-0">
         <AppHeader />
         <div className="flex-1 overflow-y-auto min-h-0">
-          {/* Tool content area - renders selected tool or children */}
-          <ToolContentRenderer />
-          {/* Dashboard content when no tool selected */}
-          {children}
+          {shouldRenderToolContent ? <ToolContentRenderer /> : children}
         </div>
         <StatusBar />
       </main>

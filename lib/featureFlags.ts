@@ -39,7 +39,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "blue",
     layout: "upload-center",
     enabled: true,
-    route: "/media/video-converter",
+    route: "/app/media/video-converter",
     maxFileSize: 200,
   },
   {
@@ -50,7 +50,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "purple",
     layout: "upload-center",
     enabled: true,
-    route: "/media/audio-converter",
+    route: "/app/media/audio-converter",
     maxFileSize: 100,
   },
   {
@@ -61,7 +61,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "blue",
     layout: "form-heavy",
     enabled: true,
-    route: "/media/video-compressor",
+    route: "/app/media/video-compressor",
     maxFileSize: 200,
   },
   {
@@ -72,7 +72,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "purple",
     layout: "form-heavy",
     enabled: true,
-    route: "/media/audio-compressor",
+    route: "/app/media/audio-compressor",
     maxFileSize: 100,
   },
   {
@@ -83,7 +83,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "cyan",
     layout: "split-panel",
     enabled: true,
-    route: "/media/video-trimmer",
+    route: "/app/media/video-trimmer",
     maxFileSize: 200,
     new: true,
   },
@@ -95,7 +95,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "purple",
     layout: "split-panel",
     enabled: true,
-    route: "/media/audio-trimmer",
+    route: "/app/media/audio-trimmer",
     maxFileSize: 100,
   },
   {
@@ -106,7 +106,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "cyan",
     layout: "upload-center",
     enabled: true,
-    route: "/media/mp4-to-mp3",
+    route: "/app/media/mp4-to-mp3",
     maxFileSize: 200,
   },
   {
@@ -117,7 +117,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "orange",
     layout: "form-heavy",
     enabled: true,
-    route: "/media/volume-booster",
+    route: "/app/media/volume-booster",
     maxFileSize: 100,
     new: true,
   },
@@ -126,14 +126,14 @@ export const toolRegistry: readonly ToolDefinition[] = [
   // 🖼 IMAGE TOOLS
   // ============================================================================
   {
-    id: "png-to-webp",
-    name: "PNG ↔ WebP",
-    description: "Convert between PNG and WebP formats",
+    id: "image-converter",
+    name: "Image Converter",
+    description: "Convert images between different formats",
     category: "image",
     accent: "purple",
     layout: "upload-center",
     enabled: true,
-    route: "/image/png-to-webp",
+    route: "/app/image/image-converter",
     maxFileSize: 50,
   },
   {
@@ -144,7 +144,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "green",
     layout: "form-heavy",
     enabled: true,
-    route: "/image/image-compressor",
+    route: "/app/image/image-compressor",
     maxFileSize: 50,
   },
   {
@@ -155,7 +155,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "pink",
     layout: "upload-center",
     enabled: true,
-    route: "/image/background-remover",
+    route: "/app/image/background-remover",
     maxFileSize: 20,
     new: true,
   },
@@ -167,7 +167,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "green",
     layout: "live-playground",
     enabled: true,
-    route: "/image/image-cropper",
+    route: "/app/image/image-cropper",
     maxFileSize: 20,
   },
 
@@ -182,7 +182,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "red",
     layout: "upload-center",
     enabled: true,
-    route: "/document/pdf-merge",
+    route: "/app/document/pdf-merge",
     maxFileSize: 100,
   },
   {
@@ -193,7 +193,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "red",
     layout: "split-panel",
     enabled: true,
-    route: "/document/pdf-split",
+    route: "/app/document/pdf-split",
     maxFileSize: 100,
   },
   {
@@ -204,7 +204,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "red",
     layout: "form-heavy",
     enabled: true,
-    route: "/document/pdf-compressor",
+    route: "/app/document/pdf-compressor",
     maxFileSize: 100,
   },
   {
@@ -215,7 +215,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "blue",
     layout: "upload-center",
     enabled: true,
-    route: "/document/pdf-to-word",
+    route: "/app/document/pdf-to-word",
     maxFileSize: 50,
   },
   {
@@ -226,7 +226,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "yellow",
     layout: "split-panel",
     enabled: true,
-    route: "/document/ocr",
+    route: "/app/document/ocr",
     maxFileSize: 50,
     new: true,
   },
@@ -242,7 +242,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "blue",
     layout: "form-heavy",
     enabled: true,
-    route: "/web/url-shortener",
+    route: "/app/web/url-shortener",
     new: true,
   },
   {
@@ -253,7 +253,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "purple",
     layout: "form-heavy",
     enabled: true,
-    route: "/web/qr-generator",
+    route: "/app/web/qr-generator",
   },
   {
     id: "json-formatter",
@@ -263,7 +263,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "emerald",
     layout: "live-playground",
     enabled: true,
-    route: "/web/json-formatter",
+    route: "/app/web/json-formatter",
   },
   {
     id: "base64-encoder",
@@ -273,7 +273,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "yellow",
     layout: "split-panel",
     enabled: true,
-    route: "/web/base64-encoder",
+    route: "/app/web/base64-encoder",
   },
   {
     id: "hash-generator",
@@ -283,7 +283,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "green",
     layout: "form-heavy",
     enabled: true,
-    route: "/web/hash-generator",
+    route: "/app/web/hash-generator",
   },
   {
     id: "website-screenshot",
@@ -293,7 +293,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "cyan",
     layout: "form-heavy",
     enabled: true,
-    route: "/web/website-screenshot",
+    route: "/app/web/website-screenshot",
     new: true,
   },
 
@@ -308,7 +308,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "blue",
     layout: "form-heavy",
     enabled: true,
-    route: "/dev/uuid-generator",
+    route: "/app/dev/uuid-generator",
   },
   {
     id: "jwt-decoder",
@@ -318,7 +318,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "orange",
     layout: "split-panel",
     enabled: true,
-    route: "/dev/jwt-decoder",
+    route: "/app/dev/jwt-decoder",
   },
   {
     id: "regex-tester",
@@ -328,7 +328,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "green",
     layout: "live-playground",
     enabled: true,
-    route: "/dev/regex-tester",
+    route: "/app/dev/regex-tester",
   },
   {
     id: "timestamp-converter",
@@ -338,7 +338,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "yellow",
     layout: "form-heavy",
     enabled: true,
-    route: "/dev/timestamp-converter",
+    route: "/app/dev/timestamp-converter",
   },
   {
     id: "color-palette",
@@ -348,7 +348,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "pink",
     layout: "live-playground",
     enabled: true,
-    route: "/dev/color-palette",
+    route: "/app/dev/color-palette",
     new: true,
   },
   {
@@ -359,7 +359,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "purple",
     layout: "live-playground",
     enabled: true,
-    route: "/dev/css-gradient",
+    route: "/app/dev/css-gradient",
   },
   {
     id: "box-shadow",
@@ -369,7 +369,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "orange",
     layout: "live-playground",
     enabled: true,
-    route: "/dev/box-shadow",
+    route: "/app/dev/box-shadow",
   },
   {
     id: "flexbox-playground",
@@ -379,7 +379,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "green",
     layout: "live-playground",
     enabled: true,
-    route: "/dev/flexbox-playground",
+    route: "/app/dev/flexbox-playground",
   },
   {
     id: "grid-generator",
@@ -389,7 +389,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "cyan",
     layout: "live-playground",
     enabled: true,
-    route: "/dev/grid-generator",
+    route: "/app/dev/grid-generator",
   },
   {
     id: "favicon-generator",
@@ -399,7 +399,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "yellow",
     layout: "upload-center",
     enabled: true,
-    route: "/dev/favicon-generator",
+    route: "/app/dev/favicon-generator",
   },
   {
     id: "meta-preview",
@@ -409,7 +409,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "blue",
     layout: "form-heavy",
     enabled: true,
-    route: "/dev/meta-preview",
+    route: "/app/dev/meta-preview",
     new: true,
   },
 
@@ -424,7 +424,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
     accent: "orange",
     layout: "split-panel",
     enabled: true,
-    route: "/downloader/url-downloader",
+    route: "/app/downloader/url-downloader",
     maxFileSize: 200,
   },
 ];

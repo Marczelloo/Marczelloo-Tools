@@ -166,7 +166,7 @@ function JsonFormatterUI() {
             OUTPUT
           </div>
           <div className="flex-1 p-4 font-mono text-sm text-zinc-500">
-            <span className="text-zinc-600">// Formatted output will appear here</span>
+            <span className="text-zinc-600">{`// Formatted output will appear here`}</span>
           </div>
         </div>
       </div>

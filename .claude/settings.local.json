@@ -16,7 +16,10 @@
       "Bash(pnpm run build:*)",
       "Bash(pnpm tsc:*)",
       "Bash(pnpm next build:*)",
-      "Bash(where:*)"
+      "Bash(where:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(cd C:\\\\Users\\\\moskw\\\\vscode\\\\Nextjs\\\\Marczelloo-Tools:*)"
     ]
   }
 }

@@ -175,7 +175,7 @@ export function FileDropZone({
 
         {/* Drag overlay */}
         {isDragging && (
-          <div className="absolute inset-0 rounded-lg flex items-center justify-center bg-white/5">
+          <div className="absolute -inset-[2px] rounded-lg flex items-center justify-center bg-white/5">
             <div className="text-center">
               <Upload className="w-10 h-10 mx-auto mb-2 text-white" />
               <p className="font-medium text-white">Drop to upload</p>

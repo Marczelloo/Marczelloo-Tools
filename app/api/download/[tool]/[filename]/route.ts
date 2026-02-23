@@ -30,6 +30,7 @@ interface DownloadParams {
 const TOOL_DIRECTORIES: Record<string, string> = {
   "mp4-to-mp3": "./tmp/processed/mp4-to-mp3",
   "png-to-webp": "./tmp/processed/png-to-webp",
+  "image-converter": "./tmp/processed/image-converter",
   "video-compressor": "./tmp/processed/video-compressor",
   // Add more tools as needed
 };
@@ -102,6 +103,14 @@ export async function GET(_request: NextRequest, { params }: DownloadParams): Pr
       ogg: "audio/ogg",
       pdf: "application/pdf",
       zip: "application/zip",
+      png: "image/png",
+      webp: "image/webp",
+      jpeg: "image/jpeg",
+      jpg: "image/jpeg",
+      gif: "image/gif",
+      bmp: "image/bmp",
+      tiff: "image/tiff",
+      tif: "image/tiff",
     };
 
     const contentType = contentTypes[ext ?? ""] ?? "application/octet-stream";
