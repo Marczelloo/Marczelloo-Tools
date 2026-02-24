@@ -121,5 +121,8 @@ export function detectFFprobePath(): string {
 export const FFMPEG_PATH = detectFFmpegPath();
 export const FFPROBE_PATH = detectFFprobePath();
 
-console.log("FFmpeg path detected:", FFMPEG_PATH);
-console.log("FFprobe path detected:", FFPROBE_PATH);
+// Log FFmpeg paths in development only
+if (process.env.NODE_ENV !== "production") {
+  console.log("FFmpeg path detected:", FFMPEG_PATH);
+  console.log("FFprobe path detected:", FFPROBE_PATH);
+}
