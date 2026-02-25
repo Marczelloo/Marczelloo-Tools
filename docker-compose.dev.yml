@@ -17,3 +17,7 @@ services:
       # Persist tmp directory
       - tmp-data:/app/tmp
     command: ["pnpm", "dev"]
+
+volumes:
+  tmp-data:
+
