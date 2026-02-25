@@ -19,7 +19,8 @@
       "Bash(where:*)",
       "Bash(head:*)",
       "Bash(tail:*)",
-      "Bash(cd C:\\\\Users\\\\moskw\\\\vscode\\\\Nextjs\\\\Marczelloo-Tools:*)"
+      "Bash(cd C:\\\\Users\\\\moskw\\\\vscode\\\\Nextjs\\\\Marczelloo-Tools:*)",
+      "Bash(git add:*)"
     ]
   },
   "outputStyle": "default"
