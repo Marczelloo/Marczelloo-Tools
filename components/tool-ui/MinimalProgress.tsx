@@ -4,13 +4,21 @@
 interface MinimalProgressProps {
   progress: number; // 0-100
   time?: string;
+  label?: string; // Accessibility label for screen readers
 }
 
-export function MinimalProgress({ progress, time }: MinimalProgressProps): React.JSX.Element {
+export function MinimalProgress({ progress, time, label }: MinimalProgressProps): React.JSX.Element {
   const clampedProgress = Math.min(100, Math.max(0, progress));
 
   return (
-    <div className="bg-zinc-900/50 border border-white/10 rounded-md p-6">
+    <div
+      className="bg-zinc-900/50 border border-white/10 rounded-md p-6"
+      role="progressbar"
+      aria-valuenow={Math.round(clampedProgress)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={label || "Loading"}
+    >
       <div className="text-center">
         <p className="text-3xl font-light text-white mb-4">
           {Math.round(clampedProgress)}%
