@@ -22,7 +22,7 @@ export function TactileButton({
   className = "",
   ...props
 }: TactileButtonProps): React.JSX.Element {
-  const baseClasses = "font-medium rounded-md transition-all duration-150 focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:outline-none";
+  const baseClasses = "font-medium rounded-md transition-all duration-150 focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:outline-none px-6 py-4 text-base";
   const widthClass = fullWidth ? "w-full" : "";
   const disabledAttr = disabled || loading;
 

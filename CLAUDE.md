@@ -104,6 +104,7 @@ This is a single **Next.js App Router** application with:
 ### Adding a New Tool
 
 **1. Create API Route** (`/app/api/tools/[tool-id]/route.ts`)
+
 - Handle file upload via `processUpload()` from `@/lib/security/upload`
 - Validate with Zod
 - Process with FFmpeg or other logic
@@ -111,20 +112,25 @@ This is a single **Next.js App Router** application with:
 - Add to `TOOL_DIRECTORIES` in download route
 
 **2. Create Page Component** (`/app/app/[category]/[tool-id]/page.tsx`)
+
 - Use `PageHeader`, `Surface`, `Container` from `@/components/layout`
 - Use monochrome colors only (see Section 6)
 - Export default with `ToolProvider` wrapper
 
 **3. Register Tool** (in `/lib/featureFlags.ts`)
+
 - Add to `toolRegistry` array with `ToolDefinition`
 
 **4. Add to Renderer** (in `/components/layout/tool-content-renderer.tsx`)
+
 - Add dynamic import to `toolComponents` map
 
 **5. Add Sidebar Icon** (in `/components/layout/sidebar.tsx`)
+
 - Add to `toolIconMap`
 
 **6. Add Download Support** (in `/app/api/download/[tool]/[filename]/route.ts`)
+
 - Add to `TOOL_DIRECTORIES`
 - Add MIME type if needed
 
@@ -161,6 +167,7 @@ const uploadResult = await processUpload(file, UPLOAD_CONFIG);
    - Prevents double-rendering when on tool routes
 
 **Key Context:** `useToolNavigation()` from `@/lib/tool-navigation-context`
+
 - `currentTool`: Currently active tool (synced with URL)
 - `isViewingTool`: Boolean for conditional rendering
 - `navigateToTool(id)`: Sidebar click handler
@@ -173,36 +180,40 @@ const uploadResult = await processUpload(file, UPLOAD_CONFIG);
 
 ### Color Palette
 
-| Element | Class | Hex |
-|---------|-------|-----|
-| Background | `bg-black` | #000000 |
-| Elevated | `bg-zinc-950` | #09090B |
-| Cards | `bg-zinc-900` | #18181B |
-| Primary Text | `text-white` | #FFFFFF |
-| Secondary Text | `text-zinc-400` | #A1A1AA |
-| Muted Text | `text-zinc-500` | #71717A |
-| Borders | `border-white/10` | rgba(255,255,255,0.1) |
-| Hover | `hover:bg-white/5` | rgba(255,255,255,0.05) |
+| Element        | Class              | Hex                    |
+| -------------- | ------------------ | ---------------------- |
+| Background     | `bg-black`         | #000000                |
+| Elevated       | `bg-zinc-950`      | #09090B                |
+| Cards          | `bg-zinc-900`      | #18181B                |
+| Primary Text   | `text-white`       | #FFFFFF                |
+| Secondary Text | `text-zinc-400`    | #A1A1AA                |
+| Muted Text     | `text-zinc-500`    | #71717A                |
+| Borders        | `border-white/10`  | rgba(255,255,255,0.1)  |
+| Hover          | `hover:bg-white/5` | rgba(255,255,255,0.05) |
 
 ### Primary Buttons
+
 ```tsx
-className="bg-white text-black hover:bg-zinc-200"
+className = "bg-white text-black hover:bg-zinc-200";
 ```
 
 ### Secondary Buttons
+
 ```tsx
-className="bg-transparent border border-white/10 text-zinc-400 hover:bg-white/5 hover:text-white"
+className = "bg-transparent border border-white/10 text-zinc-400 hover:bg-white/5 hover:text-white";
 ```
 
 ### Error/Success States (USE ZINC, NOT COLORS)
+
 ```tsx
 // Error
-className="bg-zinc-900 border border-zinc-700 text-zinc-300"
+className = "bg-zinc-900 border border-zinc-700 text-zinc-300";
 // Success
-className="bg-zinc-900 border border-zinc-600 text-zinc-200"
+className = "bg-zinc-900 border border-zinc-600 text-zinc-200";
 ```
 
 ### Range Sliders
+
 Use global CSS in `app/globals.css` - no inline styling needed. Sliders are monochrome by default.
 
 ---
@@ -240,6 +251,7 @@ import { processUpload, DEFAULT_UPLOAD_CONFIGS } from "@/lib/security/upload";
 **Location:** `/lib/featureFlags.ts`
 
 **Tool Registry:**
+
 ```ts
 export const toolRegistry: readonly ToolDefinition[] = [
   {
@@ -259,6 +271,7 @@ export const toolRegistry: readonly ToolDefinition[] = [
 ```
 
 **Helper Functions:**
+
 - `isToolEnabled(toolId)` - Check if tool enabled
 - `getToolById(id)` - Get tool config
 - `getToolsByCategory(category)` - Filter by category
@@ -301,10 +314,10 @@ import { runFFmpeg, validateInputFile } from "@/lib/ffmpeg/runner";
 await validateInputFile(uploadResult.filepath);
 
 // Run FFmpeg with timeout
-const result = await runFFmpeg(
-  ["-y", "-i", inputPath, "-c:v", "libwebp", outputPath],
-  { timeout: 2 * 60 * 1000, workDir: "./tmp/ffmpeg" }
-);
+const result = await runFFmpeg(["-y", "-i", inputPath, "-c:v", "libwebp", outputPath], {
+  timeout: 2 * 60 * 1000,
+  workDir: "./tmp/ffmpeg",
+});
 
 if (!result.success) {
   // Handle error (result.timedOut, result.error, result.stderr)
@@ -316,12 +329,14 @@ if (!result.success) {
 ## 11. Code Quality
 
 **Required:**
+
 - Strict TypeScript (no `any`)
 - Zod validation on all API inputs
 - Proper error handling (no silent swallowing)
 - Separation of concerns (API vs UI)
 
 **Forbidden:**
+
 - Business logic in React components
 - Hardcoded limits (use constants)
 - Unsafe `child_process` (use FFmpeg wrapper)
@@ -331,12 +346,14 @@ if (!result.success) {
 ## 12. Motion Rules
 
 **Allowed:**
+
 - Fade (150-250ms)
 - Subtle translate (max 10px)
 - Progress animations
 - Hover micro-feedback
 
 **Forbidden:**
+
 - Bounce springs
 - Floating blobs
 - Infinite animated backgrounds
@@ -348,9 +365,11 @@ if (!result.success) {
 ## 13. URL Downloader Rules (Legal Safe Mode)
 
 UI must say:
+
 > "Download media from public URL"
 
 Must include:
+
 > "You must have rights to download this content."
 
 No platform names, logos, or SEO targeting specific services.
@@ -373,11 +392,11 @@ No platform names, logos, or SEO targeting specific services.
 
 ## 15. Performance Limits
 
-| Limit | Value |
-|-------|-------|
-| Max file size | 200MB (configurable per tool) |
-| Max processing time | 5 minutes |
-| Max concurrent heavy jobs | 2 |
+| Limit                     | Value                         |
+| ------------------------- | ----------------------------- |
+| Max file size             | 200MB (configurable per tool) |
+| Max processing time       | 5 minutes                     |
+| Max concurrent heavy jobs | 2                             |
 
 ---
 
@@ -394,3 +413,72 @@ The platform must feel:
 **NOT:** Experimental, playful, overdesigned
 
 > It should feel like: "Serious online utility platform."
+
+## 🤖 Role & Persona
+
+You are an expert Principal UI/UX Designer and Senior Frontend Engineer specializing in React and Tailwind CSS. Your aesthetic is ultra-premium, minimalist, and highly technical. You design interfaces that look like native desktop applications (e.g., Vercel, Linear.app, Raycast), not standard websites.
+
+## 🎨 Core Art Direction: "Tactile Monochrome"
+
+- **The Vibe:** Ultra-dark, minimalist, professional, focused, and distraction-free.
+- **Zero Color Policy:** Do NOT use any colors (no blues, purples, greens, etc.) unless strictly necessary for status (e.g., a highly muted red `text-red-500/80` for a destructive action). Rely entirely on black, white, and translucent greys.
+- **Depth over Flatness:** Do not use flat, muddy grey backgrounds. Create depth using pure black backgrounds, elevated surfaces with 1px translucent white borders, subtle lighting (gradients), and glassmorphism.
+
+## 🖌️ Exact Color & Tailwind Rules
+
+Always map your designs to these specific Tailwind utility classes:
+
+- **App Background:** `bg-black` (`#000000`) - The absolute bottom layer.
+- **Elevated Surfaces (Cards, Modals, Sidebars):** `bg-[#0A0A0A]` or `bg-zinc-950`.
+- **Interactive Surface Hover:** `hover:bg-white/5` or `hover:bg-zinc-900`.
+- **Borders (Crucial for depth):** `border border-white/10` or `border-zinc-800`. Never use solid grey borders; always use opacity-based white/black.
+- **Primary Text:** `text-white` or `text-zinc-100`.
+- **Secondary/Muted Text:** `text-zinc-400` or `text-zinc-500`.
+- **Primary Accents & CTAs:** Solid white background, black text (`bg-white text-black`). Hover state: `hover:bg-zinc-200`.
+
+## 🔤 Typography Hierarchy
+
+- **Main Font (Headings & Body):** Modern sans-serif (`font-sans`, Inter, Geist, or system-ui). Use tight tracking for headings (`tracking-tight`).
+- **Technical/Data Font:** Monospaced (`font-mono`, JetBrains Mono). **Must be used for:**
+  - File sizes, extensions (MP4, JSON).
+  - Small labels, section tags, step indicators.
+  - Code blocks, hashes, and configuration keys.
+  - Style labels as: `text-xs font-mono uppercase tracking-widest text-zinc-500`.
+
+## 🧩 Component Architecture Rules
+
+**1. Cards & Containers**
+
+- Never make them plain grey. Use `bg-[#0A0A0A] border border-white/10 rounded-xl`.
+- Add subtle inner glows or outer drop shadows to lift them: `shadow-2xl shadow-black/80`.
+- Use asymmetric "Bento Box" grid layouts instead of standard 3x2 grids when displaying multiple features.
+
+**2. Buttons & Interactions**
+
+- **Primary CTA:** `bg-white text-black font-medium rounded-lg active:scale-[0.98] hover:-translate-y-0.5 transition-all`. Add a subtle shadow to make it glow: `shadow-[0_0_15px_rgba(255,255,255,0.1)]`.
+- **Secondary/Ghost:** `bg-transparent text-white border border-white/10 hover:bg-white/5 rounded-lg`.
+- **Selectable Cards (like Output Formats):** Unselected state is `bg-black border border-white/10`. Selected state is `bg-white text-black border-transparent`.
+
+**3. Inputs & Dropzones**
+
+- Standard Inputs: `bg-black border border-white/10 text-white placeholder:text-zinc-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/30`.
+- File Dropzones: Must have a tactile feel. `border border-dashed border-white/20 bg-black/50 hover:bg-white/5 hover:border-white/40`. Always include a central icon badge.
+
+**4. Iconography**
+
+- **NO EMOJIS.** Under any circumstances.
+- Use `lucide-react` exclusively.
+- Keep strokes thin and elegant: `strokeWidth={1.5}` or `1.25`.
+- Default icon color should be `text-zinc-400` or `text-white`.
+
+## 🏗️ Layout & Structure (SPA Vibe)
+
+- The application should feel like a native desktop app, built as a Single Page Application (SPA).
+- Use `h-screen w-full flex overflow-hidden` for the main layout wrapper.
+- Only the specific content canvas/workspace should scroll (`overflow-y-auto`); sidebars and top headers must remain fixed.
+
+## 🛠️ Code Output Rules
+
+- Write clean, functional React components.
+- Do not write inline CSS; rely entirely on Tailwind CSS utility classes.
+- When rendering dummy data or UI states, build them completely (e.g., if you design an upload component, include the state for 'dragging', 'uploading', and 'success' visually).

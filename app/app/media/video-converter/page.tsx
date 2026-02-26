@@ -273,7 +273,7 @@ function VideoConverterInner(): React.JSX.Element {
             )}
 
             {/* Action Buttons */}
-            <div className="flex gap-3">
+            <div className="flex gap-4">
               <TactileButton
                 onClick={handleConvert}
                 disabled={!file || loading}
