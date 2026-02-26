@@ -102,20 +102,46 @@ function VideoConverterInner(): React.JSX.Element {
         const data = await response.json();
         if (data.success && data.progress) {
           setProgress(data.progress);
+
           if (data.progress.progress >= 100) {
+            // Conversion complete - use result from progress store
             clearInterval(pollIntervalRef.current!);
             pollIntervalRef.current = null;
+
+            if (data.progress.result) {
+              setResult(data.progress.result);
+            } else {
+              // Fallback if result not in progress store
+              setResult({
+                id: id,
+                input: { filename: file?.name || "", size: file?.size || 0 },
+                output: {
+                  filename: `${id}.${outputFormat}`,
+                  downloadUrl: `/api/download/video-converter/${id}.${outputFormat}`,
+                  format: outputFormat,
+                  size: 0,
+                },
+                duration: 0,
+                type: "video",
+              } as ConversionResult);
+            }
+            setLoading(false);
+          } else if (data.progress.progress < 0) {
+            // Conversion failed
+            clearInterval(pollIntervalRef.current!);
+            pollIntervalRef.current = null;
+            setError("Conversion failed. Please try again.");
             setLoading(false);
           }
         }
       } catch {
-        // Ignore errors
+        // Ignore errors, keep polling
       }
     };
 
     poll(); // Initial poll
     pollIntervalRef.current = setInterval(poll, 300);
-  }, []);
+  }, [file, outputFormat]);
 
   const handleConvert = useCallback(async () => {
     if (!file) return;
@@ -146,9 +172,10 @@ function VideoConverterInner(): React.JSX.Element {
       const id = data.conversion?.id;
       if (id) {
         setConversionId(id);
-        setResult(data.conversion);
+        // Don't set result yet - wait for polling to complete
         startPolling(id);
       } else {
+        // No ID means conversion completed synchronously (shouldn't happen with video)
         setResult(data.conversion);
         setLoading(false);
       }

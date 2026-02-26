@@ -17,6 +17,7 @@ export const progressStore = new Map<string, {
   bitrate: string;
   speed: string;
   remainingTime?: string;
+  result?: any; // Store full conversion result when complete
 }>();
 
 export async function GET(
@@ -46,14 +47,17 @@ export function updateProgress(
     bitrate: string;
     speed: string;
     remainingTime?: string;
+    result?: any;
   }
 ) {
-  progressStore.set(conversionId, data);
+  // Get existing data and merge with new data (preserving result if already set)
+  const existing = progressStore.get(conversionId);
+  progressStore.set(conversionId, { ...existing, ...data });
 
   // Auto-cleanup when complete
   if (data.progress >= 100 || data.progress < 0) {
     setTimeout(() => {
       progressStore.delete(conversionId);
-    }, 60000); // Keep for 1 minute after completion
+    }, 300000); // Keep for 5 minutes after completion (longer for download)
   }
 }

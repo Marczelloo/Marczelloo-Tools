@@ -254,16 +254,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Mark conversion as complete
-    updateProgress(conversionId, {
-      progress: 100,
-      frame: 0,
-      fps: 0,
-      time: "00:00:00.00",
-      bitrate: "0kbits/s",
-      speed: "1x",
-    });
-
+    // Get output file size
     const { stat } = await import("fs/promises");
     let outputSize = 0;
     try {
@@ -271,44 +262,53 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       outputSize = stats.size;
     } catch { /* ignore */ }
 
-    const response: {
-      success: boolean;
-      conversion: {
-        id: string;
-        input: { filename: string; size: number };
-        output: {
-          filename: string;
-          downloadUrl: string;
-          format: string;
-          size: number;
-          bitrate?: string;
-        };
-        duration: number;
-        type: "video" | "audio";
+    // Mark conversion as complete and store result
+    const conversionResult: {
+      id: string;
+      input: { filename: string; size: number };
+      output: {
+        filename: string;
+        downloadUrl: string;
+        format: string;
+        size: number;
+        bitrate?: string;
       };
+      duration: number;
+      type: "video" | "audio";
     } = {
-      success: true,
-      conversion: {
-        id: conversionId,
-        input: { filename: uploadResult.originalName, size: uploadResult.size },
-        output: {
-          filename: outputFilename,
-          downloadUrl: `/api/download/video-converter/${outputFilename}`,
-          format: format,
-          size: outputSize,
-        },
-        duration: result.duration,
-        type: conversionType === "audio" ? "audio" : "video",
+      id: conversionId,
+      input: { filename: uploadResult.originalName, size: uploadResult.size },
+      output: {
+        filename: outputFilename,
+        downloadUrl: `/api/download/video-converter/${outputFilename}`,
+        format: format,
+        size: outputSize,
       },
+      duration: result.duration,
+      type: conversionType === "audio" ? "audio" : "video",
     };
 
     // Add bitrate for audio conversions
     if (conversionType === "audio" && isAudioFormat(format)) {
       const audioConfig = AUDIO_CODECS[format];
-      response.conversion.output.bitrate = bitrate ?? audioConfig.defaultBitrate;
+      conversionResult.output.bitrate = bitrate ?? audioConfig.defaultBitrate;
     }
 
-    return NextResponse.json(response);
+    updateProgress(conversionId, {
+      progress: 100,
+      frame: 0,
+      fps: 0,
+      time: "00:00:00.00",
+      bitrate: "0kbits/s",
+      speed: "1x",
+      result: conversionResult,
+    });
+
+    // Return the conversion result (also stored in progress for polling)
+    return NextResponse.json({
+      success: true,
+      conversion: conversionResult,
+    });
   } catch (error) {
     console.error("Video conversion error:", error);
     return NextResponse.json(
