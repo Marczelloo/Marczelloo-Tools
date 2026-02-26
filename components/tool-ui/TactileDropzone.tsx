@@ -28,10 +28,18 @@ export function TactileDropzone({
   fileTypesLabel,
 }: TactileDropzoneProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounterRef = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
 
   const handleClick = useCallback(() => {
     fileInputRef.current?.click();
+  }, []);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      fileInputRef.current?.click();
+    }
   }, []);
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -41,18 +49,33 @@ export function TactileDropzone({
     }
   }, [onFileSelect]);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(true);
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
   }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(false);
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
     setIsDragging(false);
 
     const file = e.dataTransfer.files?.[0];
@@ -68,12 +91,21 @@ export function TactileDropzone({
     ? "bg-zinc-900/50 border-solid border-white/15"
     : "bg-zinc-900/50 border-dashed border-white/10 hover:border-white/30 hover:bg-white/5";
 
+  const dropzoneId = useRef(`tactile-dropzone-${Math.random().toString(36).substring(2, 9)}`).current;
+  const descriptionId = `${dropzoneId}-description`;
+
   return (
     <div
       onClick={handleClick}
-      onDragOver={handleDragOver}
+      onKeyDown={handleKeyDown}
+      onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
       onDrop={handleDrop}
+      tabIndex={0}
+      role="button"
+      aria-label={currentFile ? `Change file: ${currentFile.name}` : "Select file to upload"}
+      aria-describedby={descriptionId}
       className={`${baseClasses} ${stateClasses}`}
     >
       <input
@@ -89,7 +121,7 @@ export function TactileDropzone({
           <FileVideo className="w-5 h-5 text-zinc-400" />
           <div>
             <p className="text-white font-medium">{currentFile.name}</p>
-            <p className="text-sm text-zinc-500 mt-0.5">{formatSize(currentFile.size)}</p>
+            <p id={descriptionId} className="text-sm text-zinc-500 mt-0.5">{formatSize(currentFile.size)}</p>
           </div>
         </div>
       ) : (
@@ -101,7 +133,7 @@ export function TactileDropzone({
           </div>
           <p className="text-zinc-300">Click to select or drop video</p>
           {fileTypesLabel && (
-            <p className="text-xs text-zinc-500 mt-1">
+            <p id={descriptionId} className="text-xs text-zinc-500 mt-1">
               {fileTypesLabel} • {maxSizeLabel}
             </p>
           )}
