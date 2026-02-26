@@ -6,7 +6,6 @@ import { Cloud, FileVideo } from "lucide-react";
 interface TactileDropzoneProps {
   onFileSelect: (file: File) => void;
   accept?: string;
-  maxSize?: number;
   currentFile: File | null;
   maxSizeLabel?: string;
   fileTypesLabel?: string;
@@ -22,7 +21,6 @@ function formatSize(bytes: number): string {
 export function TactileDropzone({
   onFileSelect,
   accept = "video/*",
-  maxSize: _maxSize,
   currentFile,
   maxSizeLabel = "Max 200MB",
   fileTypesLabel,

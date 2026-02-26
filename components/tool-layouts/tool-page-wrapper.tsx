@@ -49,7 +49,7 @@ function ToolNotFound(): React.JSX.Element {
             Tool Not Found
           </h1>
           <p className="text-content-secondary mb-6">
-            The tool you&apos;re looking for doesn&apos;t exist or has been removed.
+            {"The tool you're looking for doesn't exist or has been removed."}
           </p>
           <Link
             href="/app"

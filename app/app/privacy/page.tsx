@@ -18,7 +18,7 @@ export default function PrivacyPolicyPage(): React.JSX.Element {
             href="/"
             className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors mb-8"
           >
-            ← Back to Home
+            {"\u2190 Back to Home"}
           </Link>
           <h1 className="text-4xl font-bold mb-4">Privacy Policy</h1>
           <p className="text-zinc-400 text-lg">
@@ -36,9 +36,9 @@ export default function PrivacyPolicyPage(): React.JSX.Element {
               <div>
                 <h2 className="text-xl font-semibold mb-2">Your Privacy Matters</h2>
                 <p className="text-zinc-400 leading-relaxed">
-                  Marczelloo Tools is built with privacy as a core principle. We don't track you,
-                  don't store your files, and don't sell your data. This policy explains exactly
-                  what data we collect and why.
+                  {"Marczelloo Tools is built with privacy as a core principle. We don't track you, "}
+                  {"don't store your files, and don't sell your data. This policy explains exactly "}
+                  {"what data we collect and why."}
                 </p>
               </div>
             </div>
@@ -49,7 +49,7 @@ export default function PrivacyPolicyPage(): React.JSX.Element {
         <section className="mb-12">
           <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
             <Eye className="w-6 h-6" />
-            What We Don't Do
+            {"What We Don't Do"}
           </h2>
           <div className="grid gap-4">
             {[
@@ -75,7 +75,7 @@ export default function PrivacyPolicyPage(): React.JSX.Element {
         <section className="mb-12">
           <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
             <Database className="w-6 h-6" />
-            What We Collect
+            {"What We Collect"}
           </h2>
 
           <div className="space-y-6">
@@ -88,10 +88,10 @@ export default function PrivacyPolicyPage(): React.JSX.Element {
               <div className="bg-zinc-900 border border-white/10 rounded-sm p-4">
                 <p className="text-sm text-zinc-500 mb-2">Collected:</p>
                 <ul className="text-sm text-zinc-400 space-y-1">
-                  <li>• Anonymous session ID (random string, stored in sessionStorage)</li>
-                  <li>• Tool name used (e.g., "image-converter")</li>
-                  <li>• Processing time (for performance monitoring)</li>
-                  <li>• Error events (sanitized, no personal data)</li>
+                  <li>{"\u2022 Anonymous session ID (random string, stored in sessionStorage)"}</li>
+                  <li>{"\u2022 Tool name used (e.g., \"image-converter\")"}</li>
+                  <li>{"\u2022 Processing time (for performance monitoring)"}</li>
+                  <li>{"\u2022 Error events (sanitized, no personal data)"}</li>
                 </ul>
               </div>
             </Surface>
@@ -99,16 +99,16 @@ export default function PrivacyPolicyPage(): React.JSX.Element {
             <Surface variant="elevated" padding="lg">
               <h3 className="font-semibold text-white mb-3">Temporary File Storage</h3>
               <p className="text-zinc-400 mb-4">
-                When you upload a file for processing, it's temporarily stored on our servers.
+                {"When you upload a file for processing, it's temporarily stored on our servers. "}
                 Files are automatically deleted after you download the result.
               </p>
               <div className="bg-zinc-900 border border-white/10 rounded-sm p-4">
                 <p className="text-sm text-zinc-500 mb-2">File Handling:</p>
                 <ul className="text-sm text-zinc-400 space-y-1">
-                  <li>• Files are renamed with random UUIDs (original names never stored)</li>
-                  <li>• Stored in temporary directory only</li>
-                  <li>• Deleted immediately after download or within 20 minutes</li>
-                  <li>• Never used for any purpose other than your request</li>
+                  <li>\u2022 Files are renamed with random UUIDs (original names never stored)</li>
+                  <li>\u2022 Stored in temporary directory only</li>
+                  <li>\u2022 Deleted immediately after download or within 20 minutes</li>
+                  <li>\u2022 Never used for any purpose other than your request</li>
                 </ul>
               </div>
             </Surface>
@@ -132,7 +132,7 @@ export default function PrivacyPolicyPage(): React.JSX.Element {
                 </p>
               </div>
               <div className="bg-zinc-900 border border-white/10 rounded-sm p-4">
-                <p className="text-sm font-medium text-white mb-2">When it's deleted:</p>
+                <p className="text-sm font-medium text-white mb-2">{"When it's deleted:"}</p>
                 <p className="text-xs text-zinc-500">
                   Automatically when you close the browser tab or window
                 </p>
@@ -151,7 +151,7 @@ export default function PrivacyPolicyPage(): React.JSX.Element {
             <Surface variant="elevated" padding="md">
               <h3 className="font-semibold text-white mb-2">No Account Needed</h3>
               <p className="text-sm text-zinc-400">
-                Use all tools without creating an account. We don't need your email, name, or any
+                {"Use all tools without creating an account. We don't need your email, name, or any "}
                 personal information.
               </p>
             </Surface>
@@ -171,7 +171,7 @@ export default function PrivacyPolicyPage(): React.JSX.Element {
             <Surface variant="elevated" padding="md">
               <h3 className="font-semibold text-white mb-2">No Tracking</h3>
               <p className="text-sm text-zinc-400">
-                We don't use tracking cookies, fingerprinting, or any cross-site tracking
+                {"We don't use tracking cookies, fingerprinting, or any cross-site tracking "}
                 technologies.
               </p>
             </Surface>
@@ -187,23 +187,23 @@ export default function PrivacyPolicyPage(): React.JSX.Element {
             </p>
             <ul className="space-y-2 text-zinc-400">
               <li className="flex items-start gap-3">
-                <span className="text-white mt-1">•</span>
+                <span className="text-white mt-1">\u2022</span>
                 <span>All file uploads are validated for MIME type and extension</span>
               </li>
               <li className="flex items-start gap-3">
-                <span className="text-white mt-1">•</span>
+                <span className="text-white mt-1">\u2022</span>
                 <span>Files are renamed with random UUIDs to prevent conflicts</span>
               </li>
               <li className="flex items-start gap-3">
-                <span className="text-white mt-1">•</span>
+                <span className="text-white mt-1">\u2022</span>
                 <span>Processing happens in isolated sandbox directories</span>
               </li>
               <li className="flex items-start gap-3">
-                <span className="text-white mt-1">•</span>
+                <span className="text-white mt-1">\u2022</span>
                 <span>Automatic cleanup of temporary files</span>
               </li>
               <li className="flex items-start gap-3">
-                <span className="text-white mt-1">•</span>
+                <span className="text-white mt-1">\u2022</span>
                 <span>HTTPS encryption for all data transfers</span>
               </li>
             </ul>
@@ -212,12 +212,12 @@ export default function PrivacyPolicyPage(): React.JSX.Element {
 
         {/* Children */}
         <section className="mb-12">
-          <h2 className="text-2xl font-bold mb-6">Children's Privacy</h2>
+          <h2 className="text-2xl font-bold mb-6">{"Children's Privacy"}</h2>
           <Surface variant="elevated" padding="lg">
             <p className="text-zinc-400">
-              Our services are not directed to children under 13. We don't knowingly collect
-              personal information from children. If you're a parent and believe your child
-              has provided us with personal information, please contact us.
+              {"Our services are not directed to children under 13. We don't knowingly collect "}
+              {"personal information from children. If you're a parent and believe your child "}
+              {"has provided us with personal information, please contact us."}
             </p>
           </Surface>
         </section>

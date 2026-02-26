@@ -190,7 +190,6 @@ function VideoConverterInner(): React.JSX.Element {
                   }
                 }}
                 accept="video/*"
-                maxSize={200 * 1024 * 1024}
                 currentFile={file}
                 maxSizeLabel="Max 200MB"
                 fileTypesLabel="MP4, WebM, MOV, AVI, MKV"

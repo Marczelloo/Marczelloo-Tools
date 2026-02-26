@@ -4,10 +4,9 @@
  */
 
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 import { withSecurityHeaders } from "@/lib/security/headers";
 
-export function middleware(_request: NextRequest): NextResponse {
+export function middleware(): NextResponse {
   const response = NextResponse.next();
 
   // Apply security headers

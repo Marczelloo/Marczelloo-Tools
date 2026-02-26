@@ -158,7 +158,7 @@ export default function LandingPage() {
             <h2 className="text-4xl font-bold mt-4">
               Everything you need.
               <br />
-              <span className="text-zinc-500">Nothing you don&apos;t.</span>
+              <span className="text-zinc-500">{"Nothing you don't."}</span>
             </h2>
           </div>
 
