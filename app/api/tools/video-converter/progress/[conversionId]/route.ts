@@ -16,6 +16,7 @@ export const progressStore = new Map<string, {
   time: string;
   bitrate: string;
   speed: string;
+  remainingTime?: string;
 }>();
 
 export async function GET(
@@ -44,12 +45,13 @@ export function updateProgress(
     time: string;
     bitrate: string;
     speed: string;
+    remainingTime?: string;
   }
 ) {
   progressStore.set(conversionId, data);
 
   // Auto-cleanup when complete
-  if (data.progress >= 100) {
+  if (data.progress >= 100 || data.progress < 0) {
     setTimeout(() => {
       progressStore.delete(conversionId);
     }, 60000); // Keep for 1 minute after completion

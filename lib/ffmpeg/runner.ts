@@ -331,6 +331,11 @@ export async function runFFmpeg(
         const chunk = data.toString();
         stderr += chunk;
 
+        // Debug: log stderr chunks in development
+        if (process.env.NODE_ENV !== "production" && chunk.includes("frame=")) {
+          console.log("[FFmpeg stderr]", chunk.trim());
+        }
+
         // Parse progress if callback provided
         if (onProgress) {
           const lines = chunk.split("\n");

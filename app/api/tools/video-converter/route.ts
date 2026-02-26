@@ -57,11 +57,11 @@ const isAudioFormat = (format: string): format is AudioFormat =>
   AUDIO_FORMATS.includes(format as AudioFormat);
 
 const VIDEO_CODECS: Record<VideoFormat, { video: string; audio: string; extraArgs?: string[] }> = {
-  mp4: { video: "libx264", audio: "aac" },
-  webm: { video: "libvpx-vp9", audio: "libopus", extraArgs: ["-crf", "30", "-b:v", "0", "-speed", "4"] },
-  mov: { video: "libx264", audio: "aac" },
+  mp4: { video: "libx264", audio: "aac", extraArgs: ["-preset", "fast"] },
+  webm: { video: "libvpx", audio: "libvorbis", extraArgs: ["-crf", "32", "-b:v", "2M", "-speed", "5"] },
+  mov: { video: "libx264", audio: "aac", extraArgs: ["-preset", "fast"] },
   avi: { video: "mpeg4", audio: "mp3" },
-  mkv: { video: "libx264", audio: "aac" },
+  mkv: { video: "libx264", audio: "aac", extraArgs: ["-preset", "fast"] },
 };
 
 const AUDIO_CODECS: Record<AudioFormat, { codec: string; defaultBitrate: string }> = {
@@ -185,9 +185,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Video to Video conversion
       const codecs = VIDEO_CODECS[format];
 
-      // Get input duration for accurate progress calculation
-      const inputDuration = await getMediaDuration(uploadResult.filepath);
-
       ffmpegArgs = [
         "-y",
         "-i", uploadResult.filepath,
@@ -206,9 +203,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       ffmpegArgs.push(outputPath);
-
-      // Store input duration for progress calculation
-      (ffmpegArgs as any)._inputDuration = inputDuration;
     } else {
       return NextResponse.json(
         { success: false, error: { code: "INVALID_FORMAT", message: "Unsupported output format" } },
@@ -216,20 +210,32 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    // Get input duration for accurate progress calculation (before conversion)
+    let inputDuration: number | null = null;
+    try {
+      inputDuration = await getMediaDuration(uploadResult.filepath);
+      console.log(`[video-converter] Input duration: ${inputDuration}s`);
+    } catch (e) {
+      console.log(`[video-converter] Could not get duration, using default`);
+    }
+
     const result = await runFFmpeg(ffmpegArgs, {
       timeout: 5 * 60 * 1000,
       workDir: "/app",
     }, (progress) => {
       // Update progress via SSE
-      updateProgress(conversionId, {
+      const progressData = {
         progress: progress.percent,
         frame: progress.frame,
         fps: progress.fps,
         time: progress.time,
         bitrate: progress.bitrate,
         speed: progress.speed,
-      });
-    }, (ffmpegArgs as any)._inputDuration);
+        remainingTime: progress.remainingTime,
+      };
+      console.log(`[video-converter] Progress:`, progressData);
+      updateProgress(conversionId, progressData);
+    }, inputDuration || undefined);
 
     if (!result.success) {
       // Mark progress as failed
