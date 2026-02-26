@@ -321,7 +321,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Run compression
     const result = await runFFmpeg(ffmpegArgs, {
       timeout: 5 * 60 * 1000, // 5 minutes
-      workDir: "./tmp/ffmpeg",
+      workDir: "/app",
     });
 
     if (!result.success) {

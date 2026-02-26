@@ -131,7 +131,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const result = await runFFmpeg(ffmpegArgs, {
       timeout: 3 * 60 * 1000,
-      workDir: "./tmp/ffmpeg",
+      workDir: "/app",
     });
 
     if (!result.success) {

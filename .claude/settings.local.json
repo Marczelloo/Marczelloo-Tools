@@ -20,7 +20,13 @@
       "Bash(head:*)",
       "Bash(tail:*)",
       "Bash(cd C:\\\\Users\\\\moskw\\\\vscode\\\\Nextjs\\\\Marczelloo-Tools:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git checkout:*)",
+      "Bash(test:*)",
+      "Bash(cd \"C:\\\\Users\\\\moskw\\\\vscode\\\\Nextjs\\\\Marczelloo-Tools\" && docker compose up --build -d 2>&1)",
+      "Bash(curl:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker exec:*)"
     ]
   },
   "outputStyle": "default"
