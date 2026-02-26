@@ -101,7 +101,7 @@ export type ProgressCallback = (progress: {
 export const DEFAULT_FFMPEG_CONFIG: FFmpegConfig = {
   timeout: 5 * 60 * 1000, // 5 minutes
   maxOutputSize: 500 * 1024 * 1024, // 500MB
-  workDir: "./tmp/ffmpeg",
+  workDir: "/app/tmp/ffmpeg",
   ffmpegPath: FFMPEG_PATH,
   ffprobePath: FFPROBE_PATH,
 };
@@ -264,6 +264,15 @@ export async function runFFmpeg(
 ): Promise<FFmpegResult> {
   const fullConfig = { ...DEFAULT_FFMPEG_CONFIG, ...config };
   const startTime = Date.now();
+
+  // Ensure workDir exists before spawning FFmpeg
+  const { mkdir } = await import("fs/promises");
+  try {
+    await mkdir(fullConfig.workDir, { recursive: true });
+  } catch (err) {
+    // Directory might already exist or have a permission issue
+    // Continue and let spawn fail if there's a real problem
+  }
 
   return new Promise((resolve) => {
     let stdout = "";
