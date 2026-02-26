@@ -5,22 +5,24 @@ import { ButtonHTMLAttributes } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "ghost";
 
-interface TactileButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface TactileButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type'> {
   variant?: ButtonVariant;
   loading?: boolean;
   fullWidth?: boolean;
+  type?: 'button' | 'submit' | 'reset';
 }
 
 export function TactileButton({
   variant = "primary",
   loading = false,
   fullWidth = false,
+  type = "button",
   disabled,
   children,
   className = "",
   ...props
 }: TactileButtonProps): React.JSX.Element {
-  const baseClasses = "font-medium rounded-md transition-all duration-150";
+  const baseClasses = "font-medium rounded-md transition-all duration-150 focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:outline-none";
   const widthClass = fullWidth ? "w-full" : "";
   const disabledAttr = disabled || loading;
 
@@ -40,11 +42,20 @@ export function TactileButton({
 
   return (
     <button
+      type={type}
       disabled={disabledAttr}
+      aria-busy={loading}
       className={`${baseClasses} ${variantClasses[variant]} ${widthClass} ${className}`}
       {...props}
     >
-      {loading ? <span className="animate-pulse">{children}</span> : children}
+      {loading ? (
+        <span className="inline-flex items-center gap-2">
+          <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+          {children}
+        </span>
+      ) : (
+        children
+      )}
     </button>
   );
 }
