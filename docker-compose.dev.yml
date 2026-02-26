@@ -14,8 +14,10 @@ services:
       - .:/app
       - /app/node_modules
       - /app/.next
-      # Persist tmp directory
-      - tmp-data:/app/tmp
+      # Preserve tmp directories from image (uploads, processed, ffmpeg)
+      - /app/tmp
+      # Persist tmp data across container restarts
+      - tmp-data:/app/tmp-persist
     command: ["pnpm", "dev"]
 
 volumes:
