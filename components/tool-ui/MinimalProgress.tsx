@@ -4,10 +4,11 @@
 interface MinimalProgressProps {
   progress: number; // 0-100
   time?: string;
+  remainingTime?: string; // Estimated remaining time (HH:MM:SS format)
   label?: string; // Accessibility label for screen readers
 }
 
-export function MinimalProgress({ progress, time, label }: MinimalProgressProps): React.JSX.Element {
+export function MinimalProgress({ progress, time, remainingTime, label }: MinimalProgressProps): React.JSX.Element {
   const clampedProgress = Math.min(100, Math.max(0, progress));
 
   return (
@@ -20,17 +21,22 @@ export function MinimalProgress({ progress, time, label }: MinimalProgressProps)
       aria-label={label || "Loading"}
     >
       <div className="text-center">
-        <p className="text-3xl font-light text-white mb-4">
+        <p className="text-4xl font-light text-white mb-2">
           {Math.round(clampedProgress)}%
         </p>
-        <div className="w-full bg-zinc-800 rounded-full h-1 mb-3">
+        {remainingTime && (
+          <p className="text-sm text-zinc-400 mb-4">
+            ~{remainingTime} remaining
+          </p>
+        )}
+        <div className="w-full bg-zinc-800 rounded-full h-1.5 mb-3">
           <div
             className="bg-white h-full rounded-full transition-all duration-300"
             style={{ width: `${clampedProgress}%` }}
           />
         </div>
         {time && (
-          <p className="text-xs text-zinc-500">{time}</p>
+          <p className="text-xs text-zinc-500">Elapsed: {time}</p>
         )}
       </div>
     </div>

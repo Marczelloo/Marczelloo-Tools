@@ -17,6 +17,7 @@ import {
   runFFmpeg,
   buildFFmpegArgs,
   validateInputFile,
+  getMediaDuration,
 } from "@/lib/ffmpeg/runner";
 import { isToolEnabled } from "@/lib/featureFlags";
 import { updateProgress } from "./progress/[conversionId]/route";
@@ -55,9 +56,9 @@ const isVideoFormat = (format: string): format is VideoFormat =>
 const isAudioFormat = (format: string): format is AudioFormat =>
   AUDIO_FORMATS.includes(format as AudioFormat);
 
-const VIDEO_CODECS: Record<VideoFormat, { video: string; audio: string }> = {
+const VIDEO_CODECS: Record<VideoFormat, { video: string; audio: string; extraArgs?: string[] }> = {
   mp4: { video: "libx264", audio: "aac" },
-  webm: { video: "libvpx", audio: "libvorbis" },
+  webm: { video: "libvpx-vp9", audio: "libopus", extraArgs: ["-crf", "30", "-b:v", "0", "-speed", "4"] },
   mov: { video: "libx264", audio: "aac" },
   avi: { video: "mpeg4", audio: "mp3" },
   mkv: { video: "libx264", audio: "aac" },
@@ -184,6 +185,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Video to Video conversion
       const codecs = VIDEO_CODECS[format];
 
+      // Get input duration for accurate progress calculation
+      const inputDuration = await getMediaDuration(uploadResult.filepath);
+
       ffmpegArgs = [
         "-y",
         "-i", uploadResult.filepath,
@@ -191,12 +195,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         "-c:a", codecs.audio,
       ];
 
+      // Add format-specific extra args (e.g., webm encoding settings)
+      if (codecs.extraArgs) {
+        ffmpegArgs.push(...codecs.extraArgs);
+      }
+
       // Add faststart only for MP4 (MOV doesn't need it, WebM doesn't support movflags, AVI doesn't need it)
       if (format === "mp4") {
         ffmpegArgs.push("-movflags", "+faststart");
       }
 
       ffmpegArgs.push(outputPath);
+
+      // Store input duration for progress calculation
+      (ffmpegArgs as any)._inputDuration = inputDuration;
     } else {
       return NextResponse.json(
         { success: false, error: { code: "INVALID_FORMAT", message: "Unsupported output format" } },
@@ -217,7 +229,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         bitrate: progress.bitrate,
         speed: progress.speed,
       });
-    });
+    }, (ffmpegArgs as any)._inputDuration);
 
     if (!result.success) {
       // Mark progress as failed

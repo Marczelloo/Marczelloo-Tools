@@ -92,6 +92,7 @@ export type ProgressCallback = (progress: {
   bitrate: string;
   speed: string;
   percent: number;
+  remainingTime?: string; // Estimated remaining time in seconds
 }) => void;
 
 // ============================================================================
@@ -205,9 +206,19 @@ export function buildFFmpegArgs(options: {
 // ============================================================================
 
 /**
+ * Format seconds to HH:MM:SS
+ */
+function formatSeconds(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+/**
  * Parse FFmpeg progress from stderr line
  */
-function parseProgress(line: string): {
+function parseProgress(line: string, inputDuration?: number): {
   frame: number;
   fps: number;
   time: string;
@@ -224,15 +235,16 @@ function parseProgress(line: string): {
 
   if (!frameMatch || !timeMatch || !frameMatch[1] || !timeMatch[1]) return null;
 
-  // Parse time to calculate percentage (estimate based on 5 min default)
+  // Parse time to calculate percentage
   const timeParts = timeMatch[1].split(":");
-  const seconds =
+  const currentSeconds =
     parseInt(timeParts[0] ?? "0", 10) * 3600 +
     parseInt(timeParts[1] ?? "0", 10) * 60 +
     parseFloat(timeParts[2] ?? "0");
 
-  // Assume 5 minute max for percentage calculation
-  const percent = Math.min(100, (seconds / 300) * 100);
+  // Use actual duration if provided, otherwise default to 5 minutes
+  const duration = inputDuration || 300;
+  const percent = Math.min(100, Math.max(0, (currentSeconds / duration) * 100));
 
   return {
     frame: parseInt(frameMatch[1] ?? "0", 10),
@@ -260,7 +272,8 @@ function parseProgress(line: string): {
 export async function runFFmpeg(
   args: string[],
   config: Partial<FFmpegConfig> = {},
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  inputDuration?: number // Input video duration in seconds for accurate progress
 ): Promise<FFmpegResult> {
   const fullConfig = { ...DEFAULT_FFMPEG_CONFIG, ...config };
   const startTime = Date.now();
@@ -322,9 +335,30 @@ export async function runFFmpeg(
         if (onProgress) {
           const lines = chunk.split("\n");
           for (const line of lines) {
-            const progress = parseProgress(line);
+            const progress = parseProgress(line, inputDuration);
             if (progress) {
-              onProgress(progress);
+              // Calculate remaining time based on processed time and speed
+              let remainingTime: string | undefined;
+              if (inputDuration) {
+                // Parse speed (e.g., "1.23x" -> 1.23)
+                const speedValue = parseFloat(progress.speed) || 1;
+                if (speedValue > 0) {
+                  // Parse current time from progress (HH:MM:SS.MM format)
+                  const timeParts = progress.time.split(":");
+                  const currentSeconds =
+                    parseInt(timeParts[0] ?? "0", 10) * 3600 +
+                    parseInt(timeParts[1] ?? "0", 10) * 60 +
+                    parseFloat(timeParts[2] ?? "0");
+
+                  const remainingSeconds = (inputDuration - currentSeconds) / speedValue;
+                  remainingTime = formatSeconds(Math.max(0, Math.floor(remainingSeconds)));
+                }
+              }
+
+              onProgress({
+                ...progress,
+                remainingTime,
+              });
             }
           }
         }

@@ -39,6 +39,7 @@ interface ProgressData {
   time: string;
   bitrate: string;
   speed: string;
+  remainingTime?: string;
 }
 
 // ============================================================================
@@ -221,6 +222,7 @@ function VideoConverterInner(): React.JSX.Element {
                   <MinimalProgress
                     progress={progress.progress}
                     time={progress.time}
+                    remainingTime={progress.remainingTime}
                     label="Video conversion progress"
                   />
                 ) : (
