@@ -219,7 +219,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`[video-converter] Could not get duration, using default`);
     }
 
-    const result = await runFFmpeg(ffmpegArgs, {
+    // Start conversion in background - return ID immediately
+    runFFmpeg(ffmpegArgs, {
       timeout: 5 * 60 * 1000,
       workDir: "/app",
     }, (progress) => {
@@ -235,79 +236,77 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       };
       console.log(`[video-converter] Progress:`, progressData);
       updateProgress(conversionId, progressData);
-    }, inputDuration || undefined);
+    }, inputDuration || undefined).then((result) => {
+      // Conversion complete or failed
+      if (result.success) {
+        // Get output file size and build result
+        (async () => {
+          const { stat } = await import("fs/promises");
+          let outputSize = 0;
+          try {
+            const stats = await stat(outputPath);
+            outputSize = stats.size;
+          } catch { /* ignore */ }
 
-    if (!result.success) {
-      // Mark progress as failed
-      updateProgress(conversionId, {
-        progress: -1,
-        frame: 0,
-        fps: 0,
-        time: "00:00:00.00",
-        bitrate: "0kbits/s",
-        speed: "0x",
-      });
+          const conversionResult = {
+            id: conversionId,
+            input: { filename: uploadResult.originalName, size: uploadResult.size },
+            output: {
+              filename: outputFilename,
+              downloadUrl: `/api/download/video-converter/${outputFilename}`,
+              format: format,
+              size: outputSize,
+            },
+            duration: result.duration,
+            type: conversionType === "audio" ? "audio" : "video",
+          };
 
-      return NextResponse.json(
-        { success: false, error: { code: "CONVERSION_FAILED", message: result.timedOut ? "Conversion timed out" : result.error || "FFmpeg conversion failed" } },
-        { status: 500 }
-      );
-    }
+          // Add bitrate for audio conversions
+          if (conversionType === "audio" && isAudioFormat(format)) {
+            const audioConfig = AUDIO_CODECS[format];
+            (conversionResult.output as any).bitrate = bitrate ?? audioConfig.defaultBitrate;
+          }
 
-    // Get output file size
-    const { stat } = await import("fs/promises");
-    let outputSize = 0;
-    try {
-      const stats = await stat(outputPath);
-      outputSize = stats.size;
-    } catch { /* ignore */ }
-
-    // Mark conversion as complete and store result
-    const conversionResult: {
-      id: string;
-      input: { filename: string; size: number };
-      output: {
-        filename: string;
-        downloadUrl: string;
-        format: string;
-        size: number;
-        bitrate?: string;
-      };
-      duration: number;
-      type: "video" | "audio";
-    } = {
-      id: conversionId,
-      input: { filename: uploadResult.originalName, size: uploadResult.size },
-      output: {
-        filename: outputFilename,
-        downloadUrl: `/api/download/video-converter/${outputFilename}`,
-        format: format,
-        size: outputSize,
-      },
-      duration: result.duration,
-      type: conversionType === "audio" ? "audio" : "video",
-    };
-
-    // Add bitrate for audio conversions
-    if (conversionType === "audio" && isAudioFormat(format)) {
-      const audioConfig = AUDIO_CODECS[format];
-      conversionResult.output.bitrate = bitrate ?? audioConfig.defaultBitrate;
-    }
-
-    updateProgress(conversionId, {
-      progress: 100,
-      frame: 0,
-      fps: 0,
-      time: "00:00:00.00",
-      bitrate: "0kbits/s",
-      speed: "1x",
-      result: conversionResult,
+          updateProgress(conversionId, {
+            progress: 100,
+            frame: 0,
+            fps: 0,
+            time: "00:00:00.00",
+            bitrate: "0kbits/s",
+            speed: "1x",
+            result: conversionResult,
+          });
+          console.log(`[video-converter] Conversion complete:`, conversionResult);
+        })();
+      } else {
+        // Conversion failed
+        updateProgress(conversionId, {
+          progress: -1,
+          frame: 0,
+          fps: 0,
+          time: "00:00:00.00",
+          bitrate: "0kbits/s",
+          speed: "0x",
+        });
+        console.log(`[video-converter] Conversion failed:`, result.error);
+      }
     });
 
-    // Return the conversion result (also stored in progress for polling)
+    // Return immediately with conversion ID
     return NextResponse.json({
       success: true,
-      conversion: conversionResult,
+      conversion: {
+        id: conversionId,
+        input: { filename: uploadResult.originalName, size: uploadResult.size },
+        output: {
+          filename: outputFilename,
+          downloadUrl: `/api/download/video-converter/${outputFilename}`,
+          format: format,
+          size: 0, // Will be updated when complete
+        },
+        duration: 0, // Will be updated when complete
+        type: conversionType === "audio" ? "audio" : "video",
+      },
     });
   } catch (error) {
     console.error("Video conversion error:", error);

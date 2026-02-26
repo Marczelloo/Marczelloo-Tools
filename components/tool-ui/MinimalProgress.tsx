@@ -11,6 +11,9 @@ interface MinimalProgressProps {
 export function MinimalProgress({ progress, time, remainingTime, label }: MinimalProgressProps): React.JSX.Element {
   const clampedProgress = Math.min(100, Math.max(0, progress));
 
+  // Debug: log props received
+  console.log('[MinimalProgress] Props:', { progress, time, remainingTime, clampedProgress });
+
   return (
     <div
       className="bg-zinc-900/50 border border-white/10 rounded-md p-6"

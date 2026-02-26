@@ -91,6 +91,7 @@ function VideoConverterInner(): React.JSX.Element {
   }, []);
 
   const startPolling = useCallback((id: string) => {
+    console.log('[Frontend] Starting polling for ID:', id);
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
     }
@@ -100,7 +101,9 @@ function VideoConverterInner(): React.JSX.Element {
       try {
         const response = await fetch(`/api/tools/video-converter/progress/${id}`);
         const data = await response.json();
+        console.log('[Frontend] Poll result:', data);
         if (data.success && data.progress) {
+          console.log('[Frontend] Setting progress:', data.progress);
           setProgress(data.progress);
 
           if (data.progress.progress >= 100) {
