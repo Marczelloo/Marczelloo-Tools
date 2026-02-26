@@ -76,16 +76,26 @@ function findWindowsFFmpeg(): string | null {
  * Detect FFmpeg executable path
  */
 export function detectFFmpegPath(): string {
+  // Check environment variable first
+  const envPath = process.env.FFMPEG_PATH;
+  if (envPath && existsSync(envPath)) {
+    return envPath;
+  }
+
   // On Windows, try to find FFmpeg
   if (process.platform === "win32") {
     const found = findWindowsFFmpeg();
     if (found) return found;
   }
 
-  // Check environment variable
-  const envPath = process.env.FFMPEG_PATH;
-  if (envPath && existsSync(envPath)) {
-    return envPath;
+  // In Docker/Linux, check common absolute paths
+  if (process.platform === "linux") {
+    const linuxPaths = ["/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg"];
+    for (const path of linuxPaths) {
+      if (existsSync(path)) {
+        return path;
+      }
+    }
   }
 
   // Default: assume ffmpeg is in PATH
@@ -96,6 +106,12 @@ export function detectFFmpegPath(): string {
  * Detect FFprobe executable path
  */
 export function detectFFprobePath(): string {
+  // Check environment variable first
+  const envPath = process.env.FFPROBE_PATH;
+  if (envPath && existsSync(envPath)) {
+    return envPath;
+  }
+
   const ffmpegPath = detectFFmpegPath();
 
   // If we have a full path to ffmpeg, derive ffprobe path
@@ -110,6 +126,16 @@ export function detectFFprobePath(): string {
       const ffprobePath = join(dir, ffprobeName);
       if (existsSync(ffprobePath)) {
         return ffprobePath;
+      }
+    }
+  }
+
+  // In Docker/Linux, check common absolute paths
+  if (process.platform === "linux") {
+    const linuxPaths = ["/usr/bin/ffprobe", "/usr/local/bin/ffprobe"];
+    for (const path of linuxPaths) {
+      if (existsSync(path)) {
+        return path;
       }
     }
   }
