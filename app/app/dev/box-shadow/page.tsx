@@ -96,7 +96,6 @@ function BoxShadowInner(): React.JSX.Element {
       <PageHeader
         title={tool?.name ?? "Box Shadow Generator"}
         description="Generate CSS box shadows"
-        accent="orange"
         backButton={{ href: "/app" as const, label: "Back to Dashboard" }}
       />
 
@@ -106,12 +105,12 @@ function BoxShadowInner(): React.JSX.Element {
             {/* Preview */}
             <div className="lg:col-span-2">
               <Surface variant="elevated" padding="lg">
-                <h2 className="text-lg font-semibold text-content-primary mb-4">Preview</h2>
+                <h2 className="text-lg font-semibold text-white mb-4">Preview</h2>
 
                 {/* Shadow Preview */}
                 <div
-                  className="flex items-center justify-center min-h-[300px] rounded-lg"
-                  style={{ background: "repeating-conic-gradient(#e5e5e5 0% 25%, #fff 0% 50%) 50% / 20px 20px" }}
+                  className="flex items-center justify-center min-h-[300px] rounded-lg border border-white/10"
+                  style={{ background: "repeating-conic-gradient(#18181B 0% 25%, #09090B 0% 50%) 50% / 20px 20px" }}
                 >
                   <div
                     className="w-48 h-48 rounded-lg transition-all duration-200"
@@ -127,35 +126,35 @@ function BoxShadowInner(): React.JSX.Element {
                 </div>
 
                 {/* CSS Output */}
-                <div className="mt-4 p-4 bg-surface-muted rounded-md">
+                <div className="mt-4 p-4 bg-zinc-900/50 rounded-md">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-content-muted uppercase tracking-wider">
+                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider font-mono">
                       CSS Code
                     </span>
                     <div className="flex gap-2">
                       <button
                         onClick={copyCss}
-                        className={`px-2 py-1 text-xs rounded transition-colors-fast ${
+                        className={`px-2 py-1 text-xs rounded transition-colors ${
                           copied === "css"
-                            ? "bg-accent-green text-background-primary"
-                            : "bg-surface border border-border text-content-secondary hover:bg-interactive-hover"
+                            ? "bg-white text-black"
+                            : "bg-black border border-white/10 text-zinc-400 hover:bg-white/5"
                         }`}
                       >
                         {copied === "css" ? "Copied!" : "Copy"}
                       </button>
                       <button
                         onClick={copyFullCss}
-                        className={`px-2 py-1 text-xs rounded transition-colors-fast ${
+                        className={`px-2 py-1 text-xs rounded transition-colors ${
                           copied === "full"
-                            ? "bg-accent-green text-background-primary"
-                            : "bg-surface border border-border text-content-secondary hover:bg-interactive-hover"
+                            ? "bg-white text-black"
+                            : "bg-black border border-white/10 text-zinc-400 hover:bg-white/5"
                         }`}
                       >
                         {copied === "full" ? "Copied!" : "Copy Full"}
                       </button>
                     </div>
                   </div>
-                  <pre className="text-sm text-content-primary font-mono whitespace-pre-wrap">
+                  <pre className="text-sm text-white font-mono whitespace-pre-wrap">
                     {generateFullCss()}
                   </pre>
                 </div>
@@ -166,29 +165,29 @@ function BoxShadowInner(): React.JSX.Element {
             <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-200px)]">
               {/* Box Settings */}
               <Surface variant="elevated" padding="md">
-                <h3 className="text-sm font-semibold text-content-muted uppercase tracking-wider mb-3">
+                <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-3">
                   Box Settings
                 </h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs text-content-secondary">Background</label>
+                    <label className="text-xs text-zinc-400">Background</label>
                     <div className="flex items-center gap-2 mt-1">
                       <input
                         type="color"
                         value={boxBg}
                         onChange={(e) => setBoxBg(e.target.value)}
-                        className="w-8 h-8 rounded cursor-pointer border border-border"
+                        className="w-8 h-8 rounded cursor-pointer border border-white/10"
                       />
                       <input
                         type="text"
                         value={boxBg}
                         onChange={(e) => setBoxBg(e.target.value)}
-                        className="flex-1 px-2 py-1 bg-surface border border-border rounded text-content-primary text-sm font-mono"
+                        className="flex-1 px-2 py-1 bg-black border border-white/10 rounded text-white text-sm font-mono"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs text-content-secondary">Border Radius: {boxRadius}px</label>
+                    <label className="text-xs text-zinc-400">Border Radius: {boxRadius}px</label>
                     <input
                       type="range"
                       min={0}
@@ -203,7 +202,7 @@ function BoxShadowInner(): React.JSX.Element {
 
               {/* Presets */}
               <Surface variant="elevated" padding="md">
-                <h3 className="text-sm font-semibold text-content-muted uppercase tracking-wider mb-3">
+                <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-3">
                   Presets
                 </h3>
                 <div className="grid grid-cols-2 gap-2">
@@ -211,7 +210,7 @@ function BoxShadowInner(): React.JSX.Element {
                     <button
                       key={preset.name}
                       onClick={() => applyPreset(preset)}
-                      className="px-3 py-2 text-sm bg-surface border border-border rounded hover:border-accent-orange hover:text-accent-orange transition-colors-fast"
+                      className="px-3 py-2 text-sm bg-black border border-white/10 rounded hover:border-white/30 hover:text-white transition-colors text-zinc-400"
                     >
                       {preset.name}
                     </button>
@@ -223,13 +222,13 @@ function BoxShadowInner(): React.JSX.Element {
               {shadows.map((shadow, index) => (
                 <Surface key={index} variant="elevated" padding="md">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-content-muted uppercase tracking-wider">
+                    <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">
                       Shadow {index + 1}
                     </h3>
                     {shadows.length > 1 && (
                       <button
                         onClick={() => removeShadow(index)}
-                        className="text-accent-red hover:bg-accent-red-muted px-2 py-1 rounded text-xs transition-colors-fast"
+                        className="text-zinc-400 hover:text-white px-2 py-1 rounded text-xs transition-colors"
                       >
                         Remove
                       </button>
@@ -239,9 +238,9 @@ function BoxShadowInner(): React.JSX.Element {
                   <div className="space-y-3">
                     {/* Offset X */}
                     <div>
-                      <div className="flex justify-between text-xs text-content-secondary mb-1">
+                      <div className="flex justify-between text-xs text-zinc-400 mb-1">
                         <span>Offset X</span>
-                        <span>{shadow.offsetX}px</span>
+                        <span className="font-mono">{shadow.offsetX}px</span>
                       </div>
                       <input
                         type="range"
@@ -255,9 +254,9 @@ function BoxShadowInner(): React.JSX.Element {
 
                     {/* Offset Y */}
                     <div>
-                      <div className="flex justify-between text-xs text-content-secondary mb-1">
+                      <div className="flex justify-between text-xs text-zinc-400 mb-1">
                         <span>Offset Y</span>
-                        <span>{shadow.offsetY}px</span>
+                        <span className="font-mono">{shadow.offsetY}px</span>
                       </div>
                       <input
                         type="range"
@@ -271,9 +270,9 @@ function BoxShadowInner(): React.JSX.Element {
 
                     {/* Blur */}
                     <div>
-                      <div className="flex justify-between text-xs text-content-secondary mb-1">
+                      <div className="flex justify-between text-xs text-zinc-400 mb-1">
                         <span>Blur</span>
-                        <span>{shadow.blur}px</span>
+                        <span className="font-mono">{shadow.blur}px</span>
                       </div>
                       <input
                         type="range"
@@ -287,9 +286,9 @@ function BoxShadowInner(): React.JSX.Element {
 
                     {/* Spread */}
                     <div>
-                      <div className="flex justify-between text-xs text-content-secondary mb-1">
+                      <div className="flex justify-between text-xs text-zinc-400 mb-1">
                         <span>Spread</span>
-                        <span>{shadow.spread}px</span>
+                        <span className="font-mono">{shadow.spread}px</span>
                       </div>
                       <input
                         type="range"
@@ -304,24 +303,24 @@ function BoxShadowInner(): React.JSX.Element {
                     {/* Color & Opacity */}
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-xs text-content-secondary">Color</label>
+                        <label className="text-xs text-zinc-400">Color</label>
                         <div className="flex items-center gap-1 mt-1">
                           <input
                             type="color"
                             value={shadow.color}
                             onChange={(e) => updateShadow(index, { color: e.target.value })}
-                            className="w-6 h-6 rounded cursor-pointer border border-border"
+                            className="w-6 h-6 rounded cursor-pointer border border-white/10"
                           />
                           <input
                             type="text"
                             value={shadow.color}
                             onChange={(e) => updateShadow(index, { color: e.target.value })}
-                            className="flex-1 px-1 py-1 bg-surface border border-border rounded text-content-primary text-xs font-mono"
+                            className="flex-1 px-1 py-1 bg-black border border-white/10 rounded text-white text-xs font-mono"
                           />
                         </div>
                       </div>
                       <div>
-                        <label className="text-xs text-content-secondary">Opacity: {shadow.opacity}%</label>
+                        <label className="text-xs text-zinc-400">Opacity: {shadow.opacity}%</label>
                         <input
                           type="range"
                           min={0}
@@ -334,12 +333,12 @@ function BoxShadowInner(): React.JSX.Element {
                     </div>
 
                     {/* Inset Toggle */}
-                    <label className="flex items-center gap-2 text-sm text-content-secondary cursor-pointer">
+                    <label className="flex items-center gap-2 text-sm text-zinc-400 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={shadow.inset}
                         onChange={(e) => updateShadow(index, { inset: e.target.checked })}
-                        className="rounded border-border"
+                        className="rounded border-white/10 bg-black"
                       />
                       <span>Inset Shadow</span>
                     </label>
@@ -350,7 +349,7 @@ function BoxShadowInner(): React.JSX.Element {
               {/* Add Shadow Button */}
               <button
                 onClick={addShadow}
-                className="w-full px-4 py-3 border border-dashed border-border text-content-secondary rounded-lg hover:border-accent-orange hover:text-accent-orange transition-colors-fast"
+                className="w-full px-4 py-3 border border-dashed border-white/10 text-zinc-400 rounded-lg hover:border-white/30 hover:text-white transition-colors"
               >
                 + Add Shadow Layer
               </button>
@@ -372,10 +371,10 @@ export default function BoxShadowPage(): React.JSX.Element {
     name: "Box Shadow Generator",
     description: "Generate CSS box shadows",
     category: "dev",
-    accent: "orange",
+    accent: "blue",
     layout: "live-playground",
     enabled: true,
-    route: "/dev/box-shadow",
+    route: "/app/dev/box-shadow",
   };
 
   return (

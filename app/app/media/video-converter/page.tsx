@@ -79,7 +79,30 @@ function VideoConverterInner(): React.JSX.Element {
   const [result, setResult] = useState<ConversionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<ProgressData | null>(null);
-  const [, setConversionId] = useState<string | null>(null);
+  const [conversionId, setConversionId] = useState<string | null>(null);
+
+  // Cancel the conversion by calling the DELETE endpoint
+  const cancelConversion = useCallback(async () => {
+    if (conversionId) {
+      try {
+        await fetch(`/api/tools/video-converter/progress/${conversionId}`, {
+          method: "DELETE",
+        });
+        console.log('[Frontend] Conversion cancelled:', conversionId);
+      } catch (error) {
+        console.error('[Frontend] Failed to cancel conversion:', error);
+      }
+    }
+    // Stop polling
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    // Reset all state
+    setConversionId(null);
+    setLoading(false);
+    setProgress(null);
+  }, [conversionId]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -208,12 +231,17 @@ function VideoConverterInner(): React.JSX.Element {
                 Select Video
               </legend>
               <TactileDropzone
-                onFileSelect={(selectedFile) => {
+                onFileSelect={async (selectedFile) => {
+                  // Cancel any ongoing conversion first
+                  if (loading && conversionId) {
+                    await cancelConversion();
+                  }
                   setFile(selectedFile);
                   setError(null);
                   setResult(null);
                   setProgress(null);
                   setConversionId(null);
+                  setLoading(false);
                   setOutputFormat("mp4");
                   if (pollIntervalRef.current) {
                     clearInterval(pollIntervalRef.current);
@@ -251,14 +279,21 @@ function VideoConverterInner(): React.JSX.Element {
                 {progress ? (
                   <MinimalProgress
                     progress={progress.progress}
-                    time={progress.time}
                     remainingTime={progress.remainingTime}
                     label="Video conversion progress"
                   />
                 ) : (
                   <div className="bg-zinc-900/50 border border-white/10 rounded-md p-6">
-                    <div className="w-full bg-zinc-800 rounded-full h-1 overflow-hidden">
-                      <div className="bg-white h-full rounded-full animate-pulse" style={{ width: "30%" }} />
+                    <div className="text-center">
+                      <p className="text-4xl font-light text-white font-mono tabular-nums mb-2">
+                        0%
+                      </p>
+                      <p className="text-sm text-zinc-400 mb-4 font-mono tabular-nums">
+                        Starting...
+                      </p>
+                      <div className="w-full bg-white/5 border border-white/10 rounded-full h-1.5 overflow-hidden">
+                        <div className="bg-white h-full rounded-full animate-pulse shadow-[0_0_10px_rgba(255,255,255,0.3)]" style={{ width: "0%" }} />
+                      </div>
                     </div>
                   </div>
                 )}
@@ -282,15 +317,15 @@ function VideoConverterInner(): React.JSX.Element {
                   <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                     <div>
                       <p className="text-zinc-500">Original</p>
-                      <p className="text-white font-medium">{result.input.filename}</p>
+                      <p className="text-white font-medium font-mono">{result.input.filename}</p>
                     </div>
                     <div>
                       <p className="text-zinc-500">Output Size</p>
-                      <p className="text-white font-medium">{formatSize(result.output.size)}</p>
+                      <p className="text-white font-medium font-mono">{formatSize(result.output.size)}</p>
                     </div>
                     <div>
                       <p className="text-zinc-500">Format</p>
-                      <p className="text-white font-medium uppercase">{result.output.format}</p>
+                      <p className="text-white font-medium font-mono uppercase">{result.output.format}</p>
                     </div>
                   </div>
                   <a
@@ -306,31 +341,47 @@ function VideoConverterInner(): React.JSX.Element {
 
             {/* Action Buttons */}
             <div className="flex gap-4">
+              {/* Primary/Secondary Action Button */}
               <TactileButton
-                onClick={handleConvert}
-                disabled={!file || loading}
-                loading={loading}
+                onClick={result ? () => {
+                  setFile(null);
+                  setResult(null);
+                  setError(null);
+                  setProgress(null);
+                  setConversionId(null);
+                  if (pollIntervalRef.current) {
+                    clearInterval(pollIntervalRef.current);
+                    pollIntervalRef.current = null;
+                  }
+                } : handleConvert}
+                disabled={!file || (loading && !result)}
+                loading={loading && !result}
+                variant={result ? "secondary" : "primary"}
                 fullWidth
               >
-                {loading ? "Converting..." : "Convert Video"}
+                {result ? "Start Over" : loading ? "Converting..." : "Convert Video"}
               </TactileButton>
-              {file && (
+
+              {/* Clear/Cancel Button */}
+              {file && !result && (
                 <TactileButton
                   variant="secondary"
-                  onClick={() => {
+                  onClick={async () => {
+                    if (loading) {
+                      // Cancel the ongoing conversion
+                      await cancelConversion();
+                    }
+                    // Clear all state
                     setFile(null);
                     setResult(null);
                     setError(null);
                     setProgress(null);
                     setConversionId(null);
-                    if (pollIntervalRef.current) {
-                      clearInterval(pollIntervalRef.current);
-                      pollIntervalRef.current = null;
-                    }
+                    setLoading(false);
                   }}
-                  disabled={loading}
+                  className={loading ? "border border-white/10 text-zinc-300 hover:text-white hover:bg-white/5" : ""}
                 >
-                  Clear
+                  {loading ? "Cancel" : "Clear"}
                 </TactileButton>
               )}
             </div>
@@ -351,10 +402,10 @@ export default function VideoConverterPage(): React.JSX.Element {
     name: "Video Converter",
     description: "Convert video files between formats",
     category: "media",
-    accent: "cyan",
+    accent: "blue",
     layout: "upload-center",
     enabled: true,
-    route: "/media/video-converter",
+    route: "/app/media/video-converter",
   };
 
   return (

@@ -1,9 +1,35 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { PageHeader, Surface, Container } from "@/components/layout";
 import { ToolProvider, useTool } from "@/lib/tool-context";
 import type { ToolDefinition } from "@/lib/featureFlags";
+import { TactileDropzone } from "@/components/tool-ui/TactileDropzone";
+import { TactileFormatGrid, type FormatOption } from "@/components/tool-ui/TactileFormatGrid";
+import { TactileButton } from "@/components/tool-ui/TactileButton";
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+type QualityPreset = "low" | "medium" | "high";
+
+interface CompressionResult {
+  input: {
+    filename: string;
+    size: number;
+  };
+  output: {
+    filename: string;
+    downloadUrl: string;
+    size: number;
+    compressionRatio: string;
+  };
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
 
 function formatSize(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -12,83 +38,172 @@ function formatSize(bytes: number): string {
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
 }
 
+// ============================================================================
+// QUALITY OPTIONS
+// ============================================================================
+
+const QUALITY_OPTIONS: readonly FormatOption[] = [
+  { value: "low", label: "Low", desc: "64 kbps • Smallest" },
+  { value: "medium", label: "Medium", desc: "128 kbps • Balanced" },
+  { value: "high", label: "High", desc: "192 kbps • Best quality" },
+] as const;
+
+// ============================================================================
+// AUDIO COMPRESSOR COMPONENT
+// ============================================================================
+
 function AudioCompressorInner(): React.JSX.Element {
   const { tool } = useTool();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [quality, setQuality] = useState<"low" | "medium" | "high">("medium");
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ compression: { output: { filename: string; downloadUrl: string; size: number; compressionRatio: string } } } | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) { setFile(selectedFile); setError(null); setResult(null); }
-  }, []);
+  const [file, setFile] = useState<File | null>(null);
+  const [quality, setQuality] = useState<QualityPreset>("medium");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<CompressionResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleCompress = useCallback(async () => {
     if (!file) return;
+
     setLoading(true);
     setError(null);
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append("quality", quality);
-    try {
-      const response = await fetch("/api/tools/audio-compressor", { method: "POST", body: formData });
-      const data = await response.json();
-      if (!data.success) setError(data.error?.message ?? "Compression failed");
-      else setResult(data);
-    } catch { setError("Failed to connect to server"); }
-    finally { setLoading(false); }
-  }, [file, quality]);
 
-  const QUALITY_OPTIONS = [
-    { value: "low" as const, label: "Low", bitrate: "64 kbps", desc: "Smallest file" },
-    { value: "medium" as const, label: "Medium", bitrate: "128 kbps", desc: "Balanced" },
-    { value: "high" as const, label: "High", bitrate: "192 kbps", desc: "Best quality" },
-  ];
+    try {
+      const response = await fetch("/api/tools/audio-compressor", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        setError(data.error?.message ?? "Compression failed");
+        setLoading(false);
+        return;
+      }
+
+      setResult(data.compression);
+      setLoading(false);
+    } catch {
+      setError("Failed to connect to server");
+      setLoading(false);
+    }
+  }, [file, quality]);
 
   return (
     <div className="min-h-full">
-      <PageHeader title={tool?.name ?? "Audio Compressor"} description="Compress audio files to reduce size" accent="purple" backButton={{ href: "/app" as const, label: "Back to Dashboard" }} />
+      <PageHeader
+        title={tool?.name ?? "Audio Compressor"}
+        description="Compress audio files to reduce size"
+        backButton={{ href: "/app" as const, label: "Back to Dashboard" }}
+      />
+
       <div className="p-6">
         <Container size="md" className="max-w-2xl mx-auto">
           <Surface variant="elevated" padding="lg">
+            {/* File Upload */}
             <fieldset className="mb-6">
-              <legend className="text-lg font-semibold text-content-primary mb-4">1. Select Audio</legend>
-              <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-accent-purple transition-colors-fast">
-                <input ref={fileInputRef} type="file" accept="audio/*" onChange={handleFileChange} className="hidden" />
-                {file ? <div><p className="text-content-primary font-medium">{file.name}</p><p className="text-sm text-content-tertiary mt-1">{formatSize(file.size)}</p></div> : <div><p className="text-content-secondary">Click to select an audio file</p><p className="text-xs text-content-muted mt-1">Max 100MB</p></div>}
-              </div>
+              <legend className="text-lg font-semibold text-white mb-4">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
+                  1
+                </span>
+                Select Audio
+              </legend>
+              <TactileDropzone
+                onFileSelect={(selectedFile) => {
+                  setFile(selectedFile);
+                  setError(null);
+                  setResult(null);
+                }}
+                accept="audio/*"
+                currentFile={file}
+                maxSizeLabel="Max 100MB"
+                fileTypesLabel="MP3, WAV, AAC, OGG, FLAC"
+              />
             </fieldset>
+
+            {/* Quality Settings */}
             <fieldset className="mb-6">
-              <legend className="text-lg font-semibold text-content-primary mb-4">2. Quality Settings</legend>
-              <div className="grid grid-cols-3 gap-2">
-                {QUALITY_OPTIONS.map((q) => (
-                  <button key={q.value} onClick={() => setQuality(q.value)} className={`px-4 py-3 rounded-md text-sm transition-colors-fast ${quality === q.value ? "bg-accent-purple text-background-primary" : "bg-surface border border-border text-content-secondary hover:bg-interactive-hover"}`}>
-                    <span className="font-medium">{q.label}</span>
-                    <span className="block text-xs opacity-75">{q.bitrate}</span>
-                    <span className="block text-xs opacity-50">{q.desc}</span>
-                  </button>
-                ))}
-              </div>
+              <legend className="text-lg font-semibold text-white mb-4">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
+                  2
+                </span>
+                Quality Preset
+              </legend>
+              <TactileFormatGrid
+                options={QUALITY_OPTIONS}
+                value={quality}
+                onChange={(v) => setQuality(v as QualityPreset)}
+              />
             </fieldset>
-            {error && <div className="mb-6 p-4 bg-accent-red-muted border border-accent-red rounded-md"><p className="text-accent-red text-sm">{error}</p></div>}
-            {result && (
+
+            {/* Error Display */}
+            {error && (
+              <div className="mb-6 p-4 bg-zinc-900/50 border border-zinc-700 rounded-md">
+                <p className="text-zinc-300 text-sm">{error}</p>
+              </div>
+            )}
+
+            {/* Result Display */}
+            {result && !loading && (
               <fieldset className="mb-6">
-                <legend className="text-lg font-semibold text-accent-green mb-4">Compression Complete</legend>
-                <div className="bg-accent-green-muted border border-accent-green rounded-md p-4">
+                <legend className="text-lg font-semibold text-zinc-200 mb-4">
+                  Compression Complete
+                </legend>
+                <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
                   <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                    <div><p className="text-content-muted">New Size</p><p className="text-content-primary">{formatSize(result.compression.output.size)}</p></div>
-                    <div><p className="text-content-muted">Reduction</p><p className="text-accent-green font-medium">{result.compression.output.compressionRatio}</p></div>
+                    <div>
+                      <p className="text-zinc-500">New Size</p>
+                      <p className="text-white font-medium font-mono">{formatSize(result.output.size)}</p>
+                    </div>
+                    <div>
+                      <p className="text-zinc-500">Reduction</p>
+                      <p className="text-white font-medium font-mono">{result.output.compressionRatio}</p>
+                    </div>
                   </div>
-                  <a href={result.compression.output.downloadUrl} className="block w-full px-4 py-3 bg-accent-green text-background-primary font-medium text-center rounded-md hover:opacity-90 transition-opacity" download>Download Audio</a>
+                  <a
+                    href={result.output.downloadUrl}
+                    download
+                    className="block w-full px-6 py-3 bg-white text-black font-medium text-center rounded-md hover:bg-zinc-200 hover:-translate-y-0.5 shadow-[0_4px_20px_rgba(255,255,255,0.1)] transition-all duration-150"
+                  >
+                    Download Audio
+                  </a>
                 </div>
               </fieldset>
             )}
-            <div className="flex gap-3">
-              <button onClick={handleCompress} disabled={!file || loading} className="flex-1 px-6 py-3 bg-accent-purple text-background-primary font-medium rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity">{loading ? "Compressing..." : "Compress Audio"}</button>
-              {file && <button onClick={() => { setFile(null); setResult(null); setError(null); if (fileInputRef.current) fileInputRef.current.value = ""; }} disabled={loading} className="px-6 py-3 bg-surface border border-border text-content-secondary font-medium rounded-md hover:bg-interactive-hover disabled:opacity-50 transition-colors-fast">Clear</button>}
+
+            {/* Action Buttons */}
+            <div className="flex gap-4">
+              <TactileButton
+                onClick={result ? () => {
+                  setFile(null);
+                  setResult(null);
+                  setError(null);
+                } : handleCompress}
+                disabled={!file || (loading && !result)}
+                loading={loading && !result}
+                variant={result ? "secondary" : "primary"}
+                fullWidth
+              >
+                {result ? "Start Over" : loading ? "Compressing..." : "Compress Audio"}
+              </TactileButton>
+
+              {file && !result && (
+                <TactileButton
+                  variant="secondary"
+                  onClick={() => {
+                    setFile(null);
+                    setResult(null);
+                    setError(null);
+                  }}
+                  disabled={loading}
+                >
+                  Clear
+                </TactileButton>
+              )}
             </div>
           </Surface>
         </Container>
@@ -97,7 +212,25 @@ function AudioCompressorInner(): React.JSX.Element {
   );
 }
 
+// ============================================================================
+// PAGE COMPONENT
+// ============================================================================
+
 export default function AudioCompressorPage(): React.JSX.Element {
-  const tool: ToolDefinition = { id: "audio-compressor", name: "Audio Compressor", description: "Compress audio files to reduce size", category: "media", accent: "purple", layout: "form-heavy", enabled: true, route: "/media/audio-compressor" };
-  return <ToolProvider tool={tool}><AudioCompressorInner /></ToolProvider>;
+  const tool: ToolDefinition = {
+    id: "audio-compressor",
+    name: "Audio Compressor",
+    description: "Compress audio files to reduce size",
+    category: "media",
+    accent: "blue",
+    layout: "upload-center",
+    enabled: true,
+    route: "/app/media/audio-compressor",
+  };
+
+  return (
+    <ToolProvider tool={tool}>
+      <AudioCompressorInner />
+    </ToolProvider>
+  );
 }

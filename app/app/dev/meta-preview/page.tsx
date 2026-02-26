@@ -281,7 +281,7 @@ export default function MetaPreviewPage(): React.JSX.Element {
     accent: "blue",
     layout: "form-heavy",
     enabled: true,
-    route: "/dev/meta-preview",
+    route: "/app/dev/meta-preview",
   };
 
   return (

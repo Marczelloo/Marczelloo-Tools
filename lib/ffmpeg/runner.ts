@@ -95,6 +95,8 @@ export type ProgressCallback = (progress: {
   remainingTime?: string; // Estimated remaining time in seconds
 }) => void;
 
+export type ProcessCallback = (process: ChildProcess) => void;
+
 // ============================================================================
 // DEFAULT CONFIG
 // ============================================================================
@@ -273,7 +275,8 @@ export async function runFFmpeg(
   args: string[],
   config: Partial<FFmpegConfig> = {},
   onProgress?: ProgressCallback,
-  inputDuration?: number // Input video duration in seconds for accurate progress
+  inputDuration?: number, // Input video duration in seconds for accurate progress
+  onProcess?: ProcessCallback // Callback to receive the child process for cancellation
 ): Promise<FFmpegResult> {
   const fullConfig = { ...DEFAULT_FFMPEG_CONFIG, ...config };
   const startTime = Date.now();
@@ -301,6 +304,11 @@ export async function runFFmpeg(
       // Pipe all streams
       stdio: ["ignore", "pipe", "pipe"],
     });
+
+    // Register the process for cancellation
+    if (onProcess) {
+      onProcess(ffmpeg);
+    }
 
     // Set up timeout
     const timeoutId = setTimeout(() => {

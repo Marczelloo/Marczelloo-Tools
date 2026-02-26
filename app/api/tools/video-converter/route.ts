@@ -20,7 +20,7 @@ import {
   getMediaDuration,
 } from "@/lib/ffmpeg/runner";
 import { isToolEnabled } from "@/lib/featureFlags";
-import { updateProgress } from "./progress/[conversionId]/route";
+import { updateProgress, registerProcess } from "./progress/[conversionId]/route";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import { mkdir } from "fs/promises";
@@ -236,7 +236,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       };
       console.log(`[video-converter] Progress:`, progressData);
       updateProgress(conversionId, progressData);
-    }, inputDuration || undefined).then((result) => {
+    }, inputDuration || undefined, (process) => {
+      // Register the process for cancellation
+      registerProcess(conversionId, process);
+      console.log(`[video-converter] Process registered for cancellation: ${conversionId}`);
+    }).then((result) => {
       // Conversion complete or failed
       if (result.success) {
         // Get output file size and build result

@@ -129,33 +129,32 @@ function JwtDecoderInner(): React.JSX.Element {
       <PageHeader
         title={tool?.name ?? "JWT Decoder"}
         description="Decode and inspect JWT tokens"
-        accent="orange"
         backButton={{ href: "/app" as const, label: "Back to Dashboard" }}
       />
 
       {/* Main Content */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-0 min-h-0">
         {/* Left Panel - Input */}
-        <div className="flex flex-col border-r border-border">
+        <div className="flex flex-col border-r border-white/10">
           {/* Toolbar */}
-          <div className="flex-shrink-0 flex items-center gap-2 px-4 py-3 border-b border-border bg-background-secondary">
+          <div className="flex-shrink-0 flex items-center gap-2 px-4 py-3 border-b border-white/10 bg-zinc-950">
             <button
               onClick={loadSample}
-              className="px-3 py-1.5 text-sm text-content-secondary hover:text-content-primary transition-colors-fast"
+              className="px-3 py-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
             >
               Sample
             </button>
             <button
               onClick={clearAll}
-              className="px-3 py-1.5 text-sm text-content-secondary hover:text-content-primary transition-colors-fast"
+              className="px-3 py-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
             >
               Clear
             </button>
           </div>
 
           {/* Input Label */}
-          <div className="flex-shrink-0 px-4 py-2 border-b border-border-subtle">
-            <span className="text-xs font-semibold text-content-muted uppercase tracking-wider">
+          <div className="flex-shrink-0 px-4 py-2 border-b border-white/5">
+            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider font-mono">
               JWT Token
             </span>
           </div>
@@ -166,7 +165,7 @@ function JwtDecoderInner(): React.JSX.Element {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Paste your JWT token here..."
-              className="w-full h-full p-4 bg-transparent text-content-primary font-mono text-sm resize-none focus:outline-none"
+              className="w-full h-full p-4 bg-transparent text-white font-mono text-sm resize-none focus:outline-none"
               spellCheck={false}
             />
           </div>
@@ -177,96 +176,96 @@ function JwtDecoderInner(): React.JSX.Element {
           {/* Error Display */}
           {error ? (
             <div className="p-4">
-              <div className="p-4 bg-accent-red-muted border border-accent-red rounded">
-                <p className="text-accent-red font-medium">Invalid JWT</p>
-                <p className="text-sm text-content-secondary mt-1">{error}</p>
+              <div className="p-4 bg-zinc-900 border border-zinc-700 rounded">
+                <p className="text-zinc-300 font-medium">Invalid JWT</p>
+                <p className="text-sm text-zinc-400 mt-1">{error}</p>
               </div>
             </div>
           ) : decoded ? (
             <div className="flex-1 overflow-auto">
               {/* Header Section */}
-              <div className="border-b border-border">
-                <div className="px-4 py-2 bg-background-secondary flex items-center justify-between">
+              <div className="border-b border-white/10">
+                <div className="px-4 py-2 bg-zinc-950 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 text-xs font-medium bg-accent-red text-background-primary rounded">
+                    <span className="px-2 py-0.5 text-xs font-medium bg-zinc-700 text-white rounded">
                       HEADER
                     </span>
-                    <span className="text-xs text-content-muted">Algorithm & Token Type</span>
+                    <span className="text-xs text-zinc-500">Algorithm & Token Type</span>
                   </div>
                   <button
                     onClick={() =>
                       copyToClipboard(JSON.stringify(decoded.header, null, 2), "header")
                     }
-                    className={`px-2 py-1 text-xs transition-colors-fast ${
-                      copied === "header" ? "text-accent-green" : "text-content-secondary hover:text-content-primary"
+                    className={`px-2 py-1 text-xs transition-colors ${
+                      copied === "header" ? "text-white" : "text-zinc-400 hover:text-white"
                     }`}
                   >
                     {copied === "header" ? "Copied!" : "Copy"}
                   </button>
                 </div>
-                <pre className="p-4 text-content-primary font-mono text-sm overflow-x-auto">
+                <pre className="p-4 text-white font-mono text-sm overflow-x-auto">
                   {JSON.stringify(decoded.header, null, 2)}
                 </pre>
               </div>
 
               {/* Payload Section */}
-              <div className="border-b border-border">
-                <div className="px-4 py-2 bg-background-secondary flex items-center justify-between">
+              <div className="border-b border-white/10">
+                <div className="px-4 py-2 bg-zinc-950 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 text-xs font-medium bg-accent-purple text-background-primary rounded">
+                    <span className="px-2 py-0.5 text-xs font-medium bg-zinc-600 text-white rounded">
                       PAYLOAD
                     </span>
-                    <span className="text-xs text-content-muted">Data</span>
+                    <span className="text-xs text-zinc-500">Data</span>
                   </div>
                   <button
                     onClick={() =>
                       copyToClipboard(JSON.stringify(decoded.payload, null, 2), "payload")
                     }
-                    className={`px-2 py-1 text-xs transition-colors-fast ${
-                      copied === "payload" ? "text-accent-green" : "text-content-secondary hover:text-content-primary"
+                    className={`px-2 py-1 text-xs transition-colors ${
+                      copied === "payload" ? "text-white" : "text-zinc-400 hover:text-white"
                     }`}
                   >
                     {copied === "payload" ? "Copied!" : "Copy"}
                   </button>
                 </div>
-                <pre className="p-4 text-content-primary font-mono text-sm overflow-x-auto">
+                <pre className="p-4 text-white font-mono text-sm overflow-x-auto">
                   {JSON.stringify(decoded.payload, null, 2)}
                 </pre>
               </div>
 
               {/* Timestamp Claims */}
               {(decoded.payload.iat || decoded.payload.exp || decoded.payload.nbf) && (
-                <div className="border-b border-border">
-                  <div className="px-4 py-2 bg-background-secondary">
-                    <span className="text-xs font-semibold text-content-muted uppercase tracking-wider">
+                <div className="border-b border-white/10">
+                  <div className="px-4 py-2 bg-zinc-950">
+                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                       Timestamp Claims
                     </span>
                   </div>
                   <div className="p-4 space-y-2">
                     {decoded.payload.iat && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-content-muted">Issued At (iat):</span>
-                        <span className="text-content-primary">
+                        <span className="text-zinc-500">Issued At (iat):</span>
+                        <span className="text-white">
                           {formatTimestamp(decoded.payload.iat)}
                         </span>
                       </div>
                     )}
                     {decoded.payload.nbf && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-content-muted">Not Before (nbf):</span>
-                        <span className="text-content-primary">
+                        <span className="text-zinc-500">Not Before (nbf):</span>
+                        <span className="text-white">
                           {formatTimestamp(decoded.payload.nbf)}
                         </span>
                       </div>
                     )}
                     {decoded.payload.exp && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-content-muted">Expires (exp):</span>
+                        <span className="text-zinc-500">Expires (exp):</span>
                         <span
                           className={
                             new Date(decoded.payload.exp * 1000) < new Date()
-                              ? "text-accent-red"
-                              : "text-accent-green"
+                              ? "text-zinc-300"
+                              : "text-zinc-200"
                           }
                         >
                           {formatTimestamp(decoded.payload.exp)}
@@ -279,30 +278,30 @@ function JwtDecoderInner(): React.JSX.Element {
 
               {/* Signature Section */}
               <div>
-                <div className="px-4 py-2 bg-background-secondary flex items-center justify-between">
+                <div className="px-4 py-2 bg-zinc-950 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 text-xs font-medium bg-accent-blue text-background-primary rounded">
+                    <span className="px-2 py-0.5 text-xs font-medium bg-zinc-800 text-white rounded">
                       SIGNATURE
                     </span>
-                    <span className="text-xs text-content-muted">Verify Signature</span>
+                    <span className="text-xs text-zinc-500">Verify Signature</span>
                   </div>
                   <button
                     onClick={() => copyToClipboard(decoded.signature, "signature")}
-                    className={`px-2 py-1 text-xs transition-colors-fast ${
-                      copied === "signature" ? "text-accent-green" : "text-content-secondary hover:text-content-primary"
+                    className={`px-2 py-1 text-xs transition-colors ${
+                      copied === "signature" ? "text-white" : "text-zinc-400 hover:text-white"
                     }`}
                   >
                     {copied === "signature" ? "Copied!" : "Copy"}
                   </button>
                 </div>
-                <pre className="p-4 text-content-primary font-mono text-sm break-all">
+                <pre className="p-4 text-white font-mono text-sm break-all">
                   {decoded.signature}
                 </pre>
               </div>
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center">
-              <p className="text-content-muted">Paste a JWT token to decode it</p>
+              <p className="text-zinc-500">Paste a JWT token to decode it</p>
             </div>
           )}
         </div>
@@ -321,10 +320,10 @@ export default function JwtDecoderPage(): React.JSX.Element {
     name: "JWT Decoder",
     description: "Decode and verify JWT tokens",
     category: "dev",
-    accent: "orange",
+    accent: "blue",
     layout: "split-panel",
     enabled: true,
-    route: "/dev/jwt-decoder",
+    route: "/app/dev/jwt-decoder",
   };
 
   return (

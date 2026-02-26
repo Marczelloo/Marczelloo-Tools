@@ -34,7 +34,7 @@ export function TactileButton({
       : "bg-white text-black hover:bg-zinc-200 hover:-translate-y-0.5 shadow-[0_4px_20px_rgba(255,255,255,0.1)]",
     secondary: disabledAttr
       ? "bg-zinc-900 border border-white/10 text-zinc-600 cursor-not-allowed"
-      : "bg-zinc-900 border border-white/10 text-zinc-400 hover:bg-white/5 hover:text-white",
+      : "bg-transparent border border-white/10 text-zinc-400 hover:bg-white/5 hover:text-white",
     ghost: disabledAttr
       ? "bg-transparent text-zinc-700 cursor-not-allowed"
       : "bg-transparent text-zinc-400 hover:bg-white/5 hover:text-white",

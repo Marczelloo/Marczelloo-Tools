@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
-import { PageHeader } from "@/components/layout";
+import { useState, useCallback } from "react";
+import { PageHeader, Surface, Container } from "@/components/layout";
 import { ToolProvider, useTool } from "@/lib/tool-context";
 import type { ToolDefinition } from "@/lib/featureFlags";
+import { TactileDropzone } from "@/components/tool-ui/TactileDropzone";
+import { TactileFormatGrid, type FormatOption } from "@/components/tool-ui/TactileFormatGrid";
+import { TactileButton } from "@/components/tool-ui/TactileButton";
 
 function formatSize(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -12,41 +15,62 @@ function formatSize(bytes: number): string {
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
 }
 
+const LANGUAGE_OPTIONS: readonly FormatOption[] = [
+  { value: "eng", label: "English", desc: "" },
+  { value: "spa", label: "Spanish", desc: "" },
+  { value: "fra", label: "French", desc: "" },
+  { value: "deu", label: "German", desc: "" },
+  { value: "ita", label: "Italian", desc: "" },
+  { value: "chi_sim", label: "Chinese", desc: "Simplified" },
+  { value: "jpn", label: "Japanese", desc: "" },
+] as const;
+
 function OcrInner(): React.JSX.Element {
   const { tool } = useTool();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string>("");
   const [language, setLanguage] = useState("eng");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ ocr: { input: { filename: string }; output: { text: string; confidence: number; wordCount: number } } } | null>(null);
+  const [result, setResult] = useState<{
+    ocr: {
+      input: { filename: string };
+      output: { text: string; confidence: number; wordCount: number };
+    };
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      setPreview(URL.createObjectURL(selectedFile));
-      setError(null);
-      setResult(null);
-    }
-  }, []);
-
   const handleOcr = useCallback(async () => {
     if (!file) return;
+
     setLoading(true);
     setError(null);
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append("language", language);
+
     try {
-      const response = await fetch("/api/tools/ocr", { method: "POST", body: formData });
+      const response = await fetch("/api/tools/ocr", {
+        method: "POST",
+        body: formData,
+      });
+
       const data = await response.json();
-      if (!data.success) setError(data.error?.message ?? "OCR failed");
-      else setResult(data);
-    } catch { setError("Failed to connect to server"); }
-    finally { setLoading(false); }
+
+      if (!data.success) {
+        setError(data.error?.message ?? "OCR failed");
+        setLoading(false);
+        return;
+      }
+
+      setResult(data);
+      setLoading(false);
+    } catch {
+      setError("Failed to connect to server");
+      setLoading(false);
+    }
   }, [file, language]);
 
   const copyText = useCallback(async () => {
@@ -57,73 +81,141 @@ function OcrInner(): React.JSX.Element {
     }
   }, [result]);
 
-  const LANGUAGES = [
-    { value: "eng", label: "English" },
-    { value: "spa", label: "Spanish" },
-    { value: "fra", label: "French" },
-    { value: "deu", label: "German" },
-    { value: "ita", label: "Italian" },
-    { value: "por", label: "Portuguese" },
-    { value: "chi_sim", label: "Chinese (Simplified)" },
-    { value: "jpn", label: "Japanese" },
-  ];
-
   return (
-    <div className="h-[calc(100vh-73px)] flex flex-col">
-      <PageHeader title={tool?.name ?? "OCR"} description="Extract text from images and PDFs" accent="yellow" backButton={{ href: "/app" as const, label: "Back to Dashboard" }} />
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-0 min-h-0">
-        <div className="flex flex-col border-r border-border">
-          <div className="flex-shrink-0 px-4 py-3 border-b border-border bg-background-secondary flex items-center justify-between">
-            <span className="text-xs font-semibold text-content-muted uppercase tracking-wider">Input</span>
-            <select value={language} onChange={(e) => setLanguage(e.target.value)} className="px-2 py-1 bg-surface border border-border rounded text-xs text-content-primary">
-              {LANGUAGES.map((l) => (<option key={l.value} value={l.value}>{l.label}</option>))}
-            </select>
-          </div>
-          <div className="flex-1 p-6 flex flex-col">
-            <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-accent-yellow transition-colors-fast mb-4">
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-              {file ? (
-                <div>
-                  {preview && <img src={preview} alt="Preview" className="max-h-40 mx-auto mb-2 rounded" />}
-                  <p className="text-content-primary font-medium">{file.name}</p>
-                  <p className="text-sm text-content-tertiary">{formatSize(file.size)}</p>
+    <div className="min-h-full">
+      <PageHeader
+        title={tool?.name ?? "OCR"}
+        description="Extract text from images"
+        backButton={{ href: "/app" as const, label: "Back to Dashboard" }}
+      />
+
+      <div className="p-6">
+        <Container size="lg" className="max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column - Input */}
+            <div>
+              <Surface variant="elevated" padding="lg">
+                {/* Language Selection */}
+                <div className="mb-4">
+                  <label className="block text-sm text-zinc-400 mb-2">
+                    Language
+                  </label>
+                  <select
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value)}
+                    className="w-full px-4 py-3 bg-black border border-white/10 rounded-md text-white focus:outline-none focus:border-white/30"
+                  >
+                    {LANGUAGE_OPTIONS.map((l) => (
+                      <option key={l.value} value={l.value}>
+                        {l.label} {l.desc && `(${l.desc})`}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              ) : (
-                <div>
-                  <p className="text-content-secondary">Click to select an image</p>
-                  <p className="text-xs text-content-muted">PNG, JPG, WebP • Max 50MB</p>
-                </div>
-              )}
+
+                {/* File Upload */}
+                <TactileDropzone
+                  onFileSelect={(selectedFile) => {
+                    setFile(selectedFile);
+                    setPreview(URL.createObjectURL(selectedFile));
+                    setError(null);
+                    setResult(null);
+                  }}
+                  accept="image/*"
+                  currentFile={file}
+                  maxSizeLabel="Max 50MB"
+                  fileTypesLabel="PNG, JPG, WebP"
+                />
+
+                {/* Preview */}
+                {preview && (
+                  <div className="mt-4">
+                    <img src={preview} alt="Preview" className="w-full rounded-md border border-white/10" />
+                  </div>
+                )}
+
+                {/* Error */}
+                {error && (
+                  <div className="mt-4 p-4 bg-zinc-900/50 border border-zinc-700 rounded-md">
+                    <p className="text-zinc-300 text-sm">{error}</p>
+                  </div>
+                )}
+
+                {/* Convert Button */}
+                <TactileButton
+                  onClick={handleOcr}
+                  disabled={!file || loading}
+                  loading={loading}
+                  fullWidth
+                  className="mt-4"
+                >
+                  {loading ? "Processing..." : "Extract Text"}
+                </TactileButton>
+              </Surface>
             </div>
-            {error && <div className="p-4 bg-accent-red-muted border border-accent-red rounded-md mb-4"><p className="text-accent-red text-sm">{error}</p></div>}
-            <button onClick={handleOcr} disabled={!file || loading} className="w-full px-6 py-3 bg-accent-yellow text-background-primary font-medium rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity">{loading ? "Processing..." : "Extract Text"}</button>
-          </div>
-        </div>
-        <div className="flex flex-col">
-          <div className="flex-shrink-0 px-4 py-3 border-b border-border bg-background-secondary flex items-center justify-between">
-            <span className="text-xs font-semibold text-content-muted uppercase tracking-wider">Extracted Text</span>
-            <button onClick={copyText} disabled={!result} className={`px-3 py-1 text-xs rounded transition-colors-fast ${copied ? "bg-accent-green text-background-primary" : "bg-surface border border-border text-content-secondary hover:bg-interactive-hover disabled:opacity-50"}`}>{copied ? "Copied!" : "Copy"}</button>
-          </div>
-          <div className="flex-1 overflow-auto p-6">
-            {result ? (
-              <div>
-                <div className="flex gap-4 text-sm text-content-muted mb-4">
-                  <span>Confidence: {result.ocr.output.confidence}%</span>
-                  <span>Words: {result.ocr.output.wordCount}</span>
+
+            {/* Right Column - Output */}
+            <div>
+              <Surface variant="elevated" padding="lg">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-white">Extracted Text</h2>
+                  <button
+                    onClick={copyText}
+                    disabled={!result}
+                    className={`px-4 py-2 text-sm rounded transition-colors ${
+                      copied
+                        ? "bg-white text-black"
+                        : "bg-zinc-900 border border-white/10 text-zinc-400 hover:bg-white/5 hover:text-white disabled:opacity-50"
+                    }`}
+                  >
+                    {copied ? "Copied!" : "Copy"}
+                  </button>
                 </div>
-                <pre className="whitespace-pre-wrap text-sm text-content-primary font-sans">{result.ocr.output.text || "No text detected"}</pre>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-full text-content-muted">Extracted text will appear here</div>
-            )}
+
+                {/* Stats */}
+                {result && (
+                  <div className="flex gap-4 text-sm text-zinc-400 mb-4 pb-4 border-b border-white/10">
+                    <span>Confidence: <span className="text-white font-mono">{result.ocr.output.confidence}%</span></span>
+                    <span>Words: <span className="text-white font-mono">{result.ocr.output.wordCount}</span></span>
+                </div>
+                )}
+
+                {/* Text Output */}
+                <div className="min-h-[300px] max-h-[500px] overflow-y-auto bg-zinc-900/50 border border-white/10 rounded-md p-4">
+                  {result ? (
+                    <pre className="whitespace-pre-wrap text-sm text-white font-sans">
+                      {result.ocr.output.text || "No text detected"}
+                    </pre>
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-zinc-500">
+                      Extracted text will appear here
+                    </div>
+                  )}
+                </div>
+              </Surface>
+            </div>
           </div>
-        </div>
+        </Container>
       </div>
     </div>
   );
 }
 
 export default function OcrPage(): React.JSX.Element {
-  const tool: ToolDefinition = { id: "ocr", name: "OCR", description: "Extract text from images and PDFs", category: "document", accent: "yellow", layout: "split-panel", enabled: true, route: "/document/ocr" };
-  return <ToolProvider tool={tool}><OcrInner /></ToolProvider>;
+  const tool: ToolDefinition = {
+    id: "ocr",
+    name: "OCR",
+    description: "Extract text from images",
+    category: "document",
+    accent: "blue",
+    layout: "upload-center",
+    enabled: true,
+    route: "/app/document/ocr",
+  };
+
+  return (
+    <ToolProvider tool={tool}>
+      <OcrInner />
+    </ToolProvider>
+  );
 }

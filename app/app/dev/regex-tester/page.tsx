@@ -149,41 +149,40 @@ function RegexTesterInner(): React.JSX.Element {
       <PageHeader
         title={tool?.name ?? "Regex Tester"}
         description="Test regular expressions in real-time"
-        accent="green"
         backButton={{ href: "/app" as const, label: "Back to Dashboard" }}
       />
 
       {/* Main Content */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-0 min-h-0">
         {/* Left Panel - Input */}
-        <div className="flex flex-col border-r border-border">
+        <div className="flex flex-col border-r border-white/10">
           {/* Regex Input */}
-          <div className="flex-shrink-0 p-4 border-b border-border bg-background-secondary">
+          <div className="flex-shrink-0 p-4 border-b border-white/10 bg-zinc-950">
             <div className="flex items-center gap-2 mb-3">
-              <div className="flex-1 flex items-center bg-surface border border-border rounded-md overflow-hidden">
-                <span className="text-content-muted px-2">/</span>
+              <div className="flex-1 flex items-center bg-black border border-white/10 rounded-md overflow-hidden">
+                <span className="text-zinc-500 px-2">/</span>
                 <input
                   type="text"
                   value={pattern}
                   onChange={(e) => setPattern(e.target.value)}
                   placeholder="Enter regex pattern"
-                  className="flex-1 px-2 py-2 bg-transparent text-content-primary font-mono text-sm focus:outline-none"
+                  className="flex-1 px-2 py-2 bg-transparent text-white font-mono text-sm focus:outline-none"
                 />
-                <span className="text-content-muted px-2">/</span>
+                <span className="text-zinc-500 px-2">/</span>
                 <input
                   type="text"
                   value={flags}
                   onChange={(e) => setFlags(e.target.value)}
-                  className="w-16 px-2 py-2 bg-transparent text-content-primary font-mono text-sm border-l border-border focus:outline-none"
+                  className="w-16 px-2 py-2 bg-transparent text-white font-mono text-sm border-l border-white/10 focus:outline-none"
                 />
               </div>
               <button
                 onClick={copyRegex}
                 disabled={!pattern}
-                className={`px-3 py-2 text-sm rounded border border-border transition-colors-fast ${
+                className={`px-3 py-2 text-sm rounded border border-white/10 transition-colors ${
                   copied
-                    ? "bg-accent-green text-background-primary border-accent-green"
-                    : "bg-surface text-content-secondary hover:bg-interactive-hover disabled:opacity-50"
+                    ? "bg-white text-black"
+                    : "bg-black text-zinc-400 hover:bg-white/5 disabled:opacity-50"
                 }`}
               >
                 {copied ? "Copied!" : "Copy"}
@@ -196,10 +195,10 @@ function RegexTesterInner(): React.JSX.Element {
                 <button
                   key={f.flag}
                   onClick={() => toggleFlag(f.flag)}
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors-fast ${
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors ${
                     flags.includes(f.flag)
-                      ? "bg-accent-green text-background-primary"
-                      : "bg-surface border border-border text-content-secondary hover:bg-interactive-hover"
+                      ? "bg-white text-black"
+                      : "bg-black border border-white/10 text-zinc-400 hover:bg-white/5"
                   }`}
                   title={f.description}
                 >
@@ -211,24 +210,24 @@ function RegexTesterInner(): React.JSX.Element {
           </div>
 
           {/* Toolbar */}
-          <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2 border-b border-border">
+          <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2 border-b border-white/10">
             <button
               onClick={loadSample}
-              className="px-3 py-1.5 text-sm text-content-secondary hover:text-content-primary transition-colors-fast"
+              className="px-3 py-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
             >
               Sample
             </button>
             <button
               onClick={clearAll}
-              className="px-3 py-1.5 text-sm text-content-secondary hover:text-content-primary transition-colors-fast"
+              className="px-3 py-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
             >
               Clear
             </button>
           </div>
 
           {/* Test String Label */}
-          <div className="flex-shrink-0 px-4 py-2 border-b border-border-subtle">
-            <span className="text-xs font-semibold text-content-muted uppercase tracking-wider">
+          <div className="flex-shrink-0 px-4 py-2 border-b border-white/5">
+            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider font-mono">
               Test String
             </span>
           </div>
@@ -239,7 +238,7 @@ function RegexTesterInner(): React.JSX.Element {
               value={testString}
               onChange={(e) => setTestString(e.target.value)}
               placeholder="Enter text to test against..."
-              className="w-full h-full p-4 bg-transparent text-content-primary font-mono text-sm resize-none focus:outline-none"
+              className="w-full h-full p-4 bg-transparent text-white font-mono text-sm resize-none focus:outline-none"
               spellCheck={false}
             />
           </div>
@@ -249,22 +248,22 @@ function RegexTesterInner(): React.JSX.Element {
         <div className="flex flex-col">
           {/* Error Display */}
           {error ? (
-            <div className="p-4 border-b border-border">
-              <div className="p-4 bg-accent-red-muted border border-accent-red rounded">
-                <p className="text-accent-red font-medium">Invalid Regex</p>
-                <p className="text-sm text-content-secondary mt-1">{error}</p>
+            <div className="p-4 border-b border-white/10">
+              <div className="p-4 bg-zinc-900 border border-zinc-700 rounded">
+                <p className="text-zinc-300 font-medium">Invalid Regex</p>
+                <p className="text-sm text-zinc-400 mt-1">{error}</p>
               </div>
             </div>
           ) : (
             <>
               {/* Matches Summary */}
-              <div className="flex-shrink-0 px-4 py-3 border-b border-border bg-background-secondary">
+              <div className="flex-shrink-0 px-4 py-3 border-b border-white/10 bg-zinc-950">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-content-secondary">
+                  <span className="text-sm text-zinc-400">
                     {matches.length} match{matches.length !== 1 ? "es" : ""} found
                   </span>
                   {matches.length > 0 && (
-                    <span className="text-xs text-content-muted">
+                    <span className="text-xs text-zinc-500 font-mono">
                       {matches.reduce((acc, m) => acc + m[0].length, 0)} characters matched
                     </span>
                   )}
@@ -280,40 +279,40 @@ function RegexTesterInner(): React.JSX.Element {
                       dangerouslySetInnerHTML={{ __html: highlightedText }}
                     />
                   ) : (
-                    <p className="text-content-muted">Enter a test string to see matches</p>
+                    <p className="text-zinc-500">Enter a test string to see matches</p>
                   )}
                 </div>
               </div>
 
               {/* Match Details */}
               {matches.length > 0 && (
-                <div className="flex-shrink-0 max-h-48 border-t border-border overflow-auto">
-                  <div className="px-4 py-2 bg-background-secondary">
-                    <span className="text-xs font-semibold text-content-muted uppercase tracking-wider">
+                <div className="flex-shrink-0 max-h-48 border-t border-white/10 overflow-auto">
+                  <div className="px-4 py-2 bg-zinc-950">
+                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                       Match Details
                     </span>
                   </div>
-                  <div className="divide-y divide-border">
+                  <div className="divide-y divide-white/5">
                     {matches.slice(0, 10).map((match, index) => (
                       <div key={index} className="px-4 py-2 text-sm">
                         <div className="flex items-center gap-2">
-                          <span className="text-content-muted">#{index + 1}</span>
-                          <code className="text-content-primary font-mono bg-surface-muted px-1 rounded">
+                          <span className="text-zinc-500">#{index + 1}</span>
+                          <code className="text-white font-mono bg-zinc-900 px-1 rounded">
                             {match[0]}
                           </code>
-                          <span className="text-xs text-content-tertiary">
+                          <span className="text-xs text-zinc-600">
                             at position {match.index}
                           </span>
                         </div>
                         {match.length > 1 && (
-                          <div className="mt-1 ml-6 text-xs text-content-tertiary">
+                          <div className="mt-1 ml-6 text-xs text-zinc-600">
                             Groups: {match.slice(1).map((g, i) => `[${i + 1}]: ${g}`).join(", ")}
                           </div>
                         )}
                       </div>
                     ))}
                     {matches.length > 10 && (
-                      <div className="px-4 py-2 text-sm text-content-muted text-center">
+                      <div className="px-4 py-2 text-sm text-zinc-500 text-center">
                         +{matches.length - 10} more matches
                       </div>
                     )}
@@ -338,10 +337,10 @@ export default function RegexTesterPage(): React.JSX.Element {
     name: "Regex Tester",
     description: "Test regular expressions",
     category: "dev",
-    accent: "green",
+    accent: "blue",
     layout: "live-playground",
     enabled: true,
-    route: "/dev/regex-tester",
+    route: "/app/dev/regex-tester",
   };
 
   return (

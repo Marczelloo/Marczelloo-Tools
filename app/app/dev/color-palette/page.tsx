@@ -200,7 +200,6 @@ function ColorPaletteInner(): React.JSX.Element {
       <PageHeader
         title={tool?.name ?? "Color Palette Generator"}
         description="Generate beautiful color palettes"
-        accent="pink"
         backButton={{ href: "/app" as const, label: "Back to Dashboard" }}
       />
 
@@ -211,7 +210,7 @@ function ColorPaletteInner(): React.JSX.Element {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Base Color */}
               <div>
-                <label className="block text-sm text-content-secondary mb-2">
+                <label className="block text-sm text-zinc-400 mb-2">
                   Base Color
                 </label>
                 <div className="flex items-center gap-3">
@@ -219,18 +218,18 @@ function ColorPaletteInner(): React.JSX.Element {
                     type="color"
                     value={baseColor}
                     onChange={(e) => setBaseColor(e.target.value)}
-                    className="w-16 h-16 rounded-lg cursor-pointer border-2 border-border"
+                    className="w-16 h-16 rounded-lg cursor-pointer border-2 border-white/10"
                   />
                   <div className="flex-1">
                     <input
                       type="text"
                       value={baseColor}
                       onChange={(e) => setBaseColor(e.target.value)}
-                      className="w-full px-4 py-3 bg-surface border border-border rounded-md text-content-primary font-mono uppercase"
+                      className="w-full px-4 py-3 bg-black border border-white/10 rounded-md text-white font-mono uppercase focus:outline-none focus:border-white/30"
                     />
                     <button
                       onClick={randomize}
-                      className="mt-2 text-sm text-accent-pink hover:underline"
+                      className="mt-2 text-sm text-zinc-400 hover:text-white transition-colors"
                     >
                       Random Color
                     </button>
@@ -240,7 +239,7 @@ function ColorPaletteInner(): React.JSX.Element {
 
               {/* Palette Type */}
               <div>
-                <label className="block text-sm text-content-secondary mb-2">
+                <label className="block text-sm text-zinc-400 mb-2">
                   Palette Type
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -248,14 +247,14 @@ function ColorPaletteInner(): React.JSX.Element {
                     <button
                       key={type.id}
                       onClick={() => { setPaletteType(type.id); generate(); }}
-                      className={`px-3 py-2 text-left rounded transition-colors-fast ${
+                      className={`px-3 py-2 text-left rounded transition-colors ${
                         paletteType === type.id
-                          ? "bg-accent-pink text-background-primary"
-                          : "bg-surface border border-border text-content-secondary hover:bg-interactive-hover"
+                          ? "bg-white text-black"
+                          : "bg-black border border-white/10 text-zinc-400 hover:bg-white/5"
                       }`}
                     >
                       <span className="block font-medium text-sm">{type.name}</span>
-                      <span className="block text-xs opacity-75">{type.description}</span>
+                      <span className="block text-xs text-zinc-500">{type.description}</span>
                     </button>
                   ))}
                 </div>
@@ -265,7 +264,7 @@ function ColorPaletteInner(): React.JSX.Element {
             <div className="mt-4 flex justify-end">
               <button
                 onClick={() => { generate(); }}
-                className="px-6 py-2 bg-accent-pink text-background-primary font-medium rounded-md hover:opacity-90 transition-opacity"
+                className="px-6 py-2 bg-white text-black font-medium rounded-md hover:bg-zinc-200 transition-colors"
               >
                 Generate Palette
               </button>
@@ -275,13 +274,13 @@ function ColorPaletteInner(): React.JSX.Element {
           {/* Palette Display */}
           <Surface variant="elevated" padding="lg">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-content-primary">Generated Palette</h2>
+              <h2 className="text-lg font-semibold text-white">Generated Palette</h2>
               <button
                 onClick={copyCss}
-                className={`px-4 py-2 text-sm rounded border border-border transition-colors-fast ${
+                className={`px-4 py-2 text-sm rounded border border-white/10 transition-colors ${
                   copied === "css"
-                    ? "bg-accent-green text-background-primary border-accent-green"
-                    : "bg-surface text-content-secondary hover:bg-interactive-hover"
+                    ? "bg-white text-black"
+                    : "bg-black text-zinc-400 hover:bg-white/5"
                 }`}
               >
                 {copied === "css" ? "Copied!" : "Export CSS"}
@@ -293,7 +292,7 @@ function ColorPaletteInner(): React.JSX.Element {
               {palette.map((color, index) => (
                 <div key={index} className="group">
                   <div
-                    className="aspect-square rounded-lg shadow-lg cursor-pointer relative overflow-hidden"
+                    className="aspect-square rounded-lg shadow-lg cursor-pointer relative overflow-hidden border border-white/10"
                     style={{ backgroundColor: color.hex }}
                     onClick={() => copyColor(color.hex)}
                   >
@@ -309,19 +308,19 @@ function ColorPaletteInner(): React.JSX.Element {
                     </div>
                   </div>
                   <div className="mt-2">
-                    <p className="text-sm font-medium text-content-primary">{color.name}</p>
-                    <p className="text-xs font-mono text-content-muted uppercase">{color.hex}</p>
+                    <p className="text-sm font-medium text-white">{color.name}</p>
+                    <p className="text-xs font-mono text-zinc-500 uppercase">{color.hex}</p>
                   </div>
                 </div>
               ))}
             </div>
 
             {/* CSS Output */}
-            <div className="mt-6 p-4 bg-surface-muted rounded-md">
-              <p className="text-xs font-semibold text-content-muted uppercase tracking-wider mb-2">
+            <div className="mt-6 p-4 bg-zinc-900/50 rounded-md">
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2 font-mono">
                 CSS Variables
               </p>
-              <pre className="text-sm text-content-primary font-mono overflow-x-auto">
+              <pre className="text-sm text-white font-mono overflow-x-auto">
                 {exportCss()}
               </pre>
             </div>
@@ -342,10 +341,10 @@ export default function ColorPalettePage(): React.JSX.Element {
     name: "Color Palette Generator",
     description: "Generate beautiful color palettes",
     category: "dev",
-    accent: "pink",
+    accent: "blue",
     layout: "live-playground",
     enabled: true,
-    route: "/dev/color-palette",
+    route: "/app/dev/color-palette",
   };
 
   return (

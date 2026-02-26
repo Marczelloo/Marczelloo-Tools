@@ -1,9 +1,37 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { PageHeader, Surface, Container } from "@/components/layout";
 import { ToolProvider, useTool } from "@/lib/tool-context";
 import type { ToolDefinition } from "@/lib/featureFlags";
+import { TactileDropzone } from "@/components/tool-ui/TactileDropzone";
+import { TactileFormatGrid, type FormatOption } from "@/components/tool-ui/TactileFormatGrid";
+import { TactileButton } from "@/components/tool-ui/TactileButton";
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface ConversionResult {
+  id: string;
+  input: {
+    filename: string;
+    size: number;
+  };
+  output: {
+    filename: string;
+    downloadUrl: string;
+    format: string;
+    size: number;
+    bitrate?: string;
+  };
+  duration: number;
+  type: "audio";
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
 
 function formatSize(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -12,84 +40,181 @@ function formatSize(bytes: number): string {
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
 }
 
+// ============================================================================
+// AUDIO FORMAT OPTIONS
+// ============================================================================
+
+const AUDIO_FORMATS: readonly FormatOption[] = [
+  { value: "mp3", label: "MP3", desc: "Universal" },
+  { value: "wav", label: "WAV", desc: "Uncompressed" },
+  { value: "aac", label: "AAC", desc: "Apple" },
+  { value: "ogg", label: "OGG", desc: "Open source" },
+  { value: "flac", label: "FLAC", desc: "Lossless" },
+] as const;
+
+// ============================================================================
+// AUDIO CONVERTER COMPONENT
+// ============================================================================
+
 function AudioConverterInner(): React.JSX.Element {
   const { tool } = useTool();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [file, setFile] = useState<File | null>(null);
   const [outputFormat, setOutputFormat] = useState("mp3");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ output: { filename: string; downloadUrl: string; format: string; size: number }; duration: number } | null>(null);
+  const [result, setResult] = useState<ConversionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) { setFile(selectedFile); setError(null); setResult(null); }
-  }, []);
 
   const handleConvert = useCallback(async () => {
     if (!file) return;
+
     setLoading(true);
     setError(null);
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append("outputFormat", outputFormat);
-    try {
-      const response = await fetch("/api/tools/audio-converter", { method: "POST", body: formData });
-      const data = await response.json();
-      if (!data.success) setError(data.error?.message ?? "Conversion failed");
-      else setResult(data.conversion);
-    } catch { setError("Failed to connect to server"); }
-    finally { setLoading(false); }
-  }, [file, outputFormat]);
+    formData.append("conversionType", "audio");
 
-  const FORMATS = [
-    { value: "mp3", label: "MP3", desc: "Universal" },
-    { value: "wav", label: "WAV", desc: "Uncompressed" },
-    { value: "aac", label: "AAC", desc: "Apple" },
-    { value: "ogg", label: "OGG", desc: "Open source" },
-    { value: "flac", label: "FLAC", desc: "Lossless" },
-  ];
+    try {
+      const response = await fetch("/api/tools/audio-converter", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        setError(data.error?.message ?? "Conversion failed");
+        setLoading(false);
+        return;
+      }
+
+      setResult(data.conversion);
+      setLoading(false);
+    } catch {
+      setError("Failed to connect to server");
+      setLoading(false);
+    }
+  }, [file, outputFormat]);
 
   return (
     <div className="min-h-full">
-      <PageHeader title={tool?.name ?? "Audio Converter"} description="Convert audio files between formats" accent="purple" backButton={{ href: "/app" as const, label: "Back to Dashboard" }} />
+      <PageHeader
+        title={tool?.name ?? "Audio Converter"}
+        description="Convert audio files between formats"
+        backButton={{ href: "/app" as const, label: "Back to Dashboard" }}
+      />
+
       <div className="p-6">
         <Container size="md" className="max-w-2xl mx-auto">
           <Surface variant="elevated" padding="lg">
+            {/* File Upload */}
             <fieldset className="mb-6">
-              <legend className="text-lg font-semibold text-content-primary mb-4">1. Select Audio</legend>
-              <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-accent-purple transition-colors-fast">
-                <input ref={fileInputRef} type="file" accept="audio/*" onChange={handleFileChange} className="hidden" />
-                {file ? <div><p className="text-content-primary font-medium">{file.name}</p><p className="text-sm text-content-tertiary mt-1">{formatSize(file.size)}</p></div> : <div><p className="text-content-secondary">Click to select an audio file</p><p className="text-xs text-content-muted mt-1">MP3, WAV, AAC, OGG, FLAC • Max 100MB</p></div>}
-              </div>
+              <legend className="text-lg font-semibold text-white mb-4">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
+                  1
+                </span>
+                Select Audio
+              </legend>
+              <TactileDropzone
+                onFileSelect={(selectedFile) => {
+                  setFile(selectedFile);
+                  setError(null);
+                  setResult(null);
+                }}
+                accept="audio/*"
+                currentFile={file}
+                maxSizeLabel="Max 100MB"
+                fileTypesLabel="MP3, WAV, AAC, OGG, FLAC"
+              />
             </fieldset>
+
+            {/* Output Format */}
             <fieldset className="mb-6">
-              <legend className="text-lg font-semibold text-content-primary mb-4">2. Output Format</legend>
-              <div className="grid grid-cols-3 gap-2">
-                {FORMATS.map((f) => (
-                  <button key={f.value} onClick={() => setOutputFormat(f.value)} className={`px-4 py-3 rounded-md text-sm transition-colors-fast ${outputFormat === f.value ? "bg-accent-purple text-background-primary" : "bg-surface border border-border text-content-secondary hover:bg-interactive-hover"}`}>
-                    <span className="font-medium">{f.label}</span>
-                    <span className="block text-xs opacity-75">{f.desc}</span>
-                  </button>
-                ))}
-              </div>
+              <legend className="text-lg font-semibold text-white mb-4">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
+                  2
+                </span>
+                Output Format
+              </legend>
+              <TactileFormatGrid
+                options={AUDIO_FORMATS}
+                value={outputFormat}
+                onChange={setOutputFormat}
+              />
             </fieldset>
-            {error && <div className="mb-6 p-4 bg-accent-red-muted border border-accent-red rounded-md"><p className="text-accent-red text-sm">{error}</p></div>}
-            {result && (
+
+            {/* Error Display */}
+            {error && (
+              <div className="mb-6 p-4 bg-zinc-900/50 border border-zinc-700 rounded-md">
+                <p className="text-zinc-300 text-sm">{error}</p>
+              </div>
+            )}
+
+            {/* Result Display */}
+            {result && !loading && (
               <fieldset className="mb-6">
-                <legend className="text-lg font-semibold text-accent-green mb-4">Conversion Complete</legend>
-                <div className="bg-accent-green-muted border border-accent-green rounded-md p-4">
+                <legend className="text-lg font-semibold text-zinc-200 mb-4">
+                  Conversion Complete
+                </legend>
+                <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
                   <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                    <div><p className="text-content-muted">Format</p><p className="text-content-primary uppercase">{result.output.format}</p></div>
-                    <div><p className="text-content-muted">Size</p><p className="text-content-primary">{formatSize(result.output.size)}</p></div>
+                    <div>
+                      <p className="text-zinc-500">Original</p>
+                      <p className="text-white font-medium font-mono">{result.input.filename}</p>
+                    </div>
+                    <div>
+                      <p className="text-zinc-500">Output Size</p>
+                      <p className="text-white font-medium font-mono">{formatSize(result.output.size)}</p>
+                    </div>
+                    <div>
+                      <p className="text-zinc-500">Format</p>
+                      <p className="text-white font-medium font-mono uppercase">{result.output.format}</p>
+                    </div>
                   </div>
-                  <a href={result.output.downloadUrl} className="block w-full px-4 py-3 bg-accent-green text-background-primary font-medium text-center rounded-md hover:opacity-90 transition-opacity" download>Download Audio</a>
+                  <a
+                    href={result.output.downloadUrl}
+                    download
+                    className="block w-full px-6 py-3 bg-white text-black font-medium text-center rounded-md hover:bg-zinc-200 hover:-translate-y-0.5 shadow-[0_4px_20px_rgba(255,255,255,0.1)] transition-all duration-150"
+                  >
+                    Download Audio
+                  </a>
                 </div>
               </fieldset>
             )}
-            <div className="flex gap-3">
-              <button onClick={handleConvert} disabled={!file || loading} className="flex-1 px-6 py-3 bg-accent-purple text-background-primary font-medium rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity">{loading ? "Converting..." : "Convert Audio"}</button>
-              {file && <button onClick={() => { setFile(null); setResult(null); setError(null); if (fileInputRef.current) fileInputRef.current.value = ""; }} disabled={loading} className="px-6 py-3 bg-surface border border-border text-content-secondary font-medium rounded-md hover:bg-interactive-hover disabled:opacity-50 transition-colors-fast">Clear</button>}
+
+            {/* Action Buttons */}
+            <div className="flex gap-4">
+              {/* Primary/Secondary Action Button */}
+              <TactileButton
+                onClick={result ? () => {
+                  setFile(null);
+                  setResult(null);
+                  setError(null);
+                } : handleConvert}
+                disabled={!file || (loading && !result)}
+                loading={loading && !result}
+                variant={result ? "secondary" : "primary"}
+                fullWidth
+              >
+                {result ? "Start Over" : loading ? "Converting..." : "Convert Audio"}
+              </TactileButton>
+
+              {/* Clear Button */}
+              {file && !result && (
+                <TactileButton
+                  variant="secondary"
+                  onClick={() => {
+                    setFile(null);
+                    setResult(null);
+                    setError(null);
+                  }}
+                  disabled={loading}
+                >
+                  Clear
+                </TactileButton>
+              )}
             </div>
           </Surface>
         </Container>
@@ -98,7 +223,25 @@ function AudioConverterInner(): React.JSX.Element {
   );
 }
 
+// ============================================================================
+// PAGE COMPONENT
+// ============================================================================
+
 export default function AudioConverterPage(): React.JSX.Element {
-  const tool: ToolDefinition = { id: "audio-converter", name: "Audio Converter", description: "Convert audio files between formats", category: "media", accent: "purple", layout: "upload-center", enabled: true, route: "/media/audio-converter" };
-  return <ToolProvider tool={tool}><AudioConverterInner /></ToolProvider>;
+  const tool: ToolDefinition = {
+    id: "audio-converter",
+    name: "Audio Converter",
+    description: "Convert audio files between formats",
+    category: "media",
+    accent: "blue",
+    layout: "upload-center",
+    enabled: true,
+    route: "/app/media/audio-converter",
+  };
+
+  return (
+    <ToolProvider tool={tool}>
+      <AudioConverterInner />
+    </ToolProvider>
+  );
 }

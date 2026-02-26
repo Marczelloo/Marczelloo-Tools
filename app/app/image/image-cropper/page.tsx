@@ -31,6 +31,7 @@ function ImageCropperInner(): React.JSX.Element {
       setFile(selectedFile);
       setError(null);
       setResult(null);
+      setLoading(false);
       const img = new Image();
       img.onload = () => {
         setImage(img);
@@ -105,15 +106,15 @@ function ImageCropperInner(): React.JSX.Element {
 
   return (
     <div className="min-h-full">
-      <PageHeader title={tool?.name ?? "Image Cropper"} description="Crop and resize images" accent="green" backButton={{ href: "/app" as const, label: "Back to Dashboard" }} />
+      <PageHeader title={tool?.name ?? "Image Cropper"} description="Crop and resize images" backButton={{ href: "/app" as const, label: "Back to Dashboard" }} />
       <div className="p-6">
         <Container size="lg" className="max-w-4xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
               <Surface variant="elevated" padding="lg">
-                <h2 className="text-lg font-semibold text-content-primary mb-4">Crop Area</h2>
+                <h2 className="text-lg font-semibold text-white mb-4">Crop Area</h2>
                 <div
-                  className="relative bg-surface-muted rounded-lg overflow-hidden"
+                  className="relative bg-zinc-900 rounded-lg overflow-hidden"
                   style={{ minHeight: 300 }}
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}
@@ -124,7 +125,7 @@ function ImageCropperInner(): React.JSX.Element {
                     <div className="relative">
                       <img src={image.src} alt="Preview" className="max-w-full" style={{ maxHeight: 400 }} />
                       <div
-                        className="absolute border-2 border-accent-green bg-accent-green/20"
+                        className="absolute border-2 border-white bg-white/20"
                         style={{
                           left: crop.x,
                           top: crop.y,
@@ -134,16 +135,16 @@ function ImageCropperInner(): React.JSX.Element {
                       />
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center h-64 text-content-muted">Select an image to crop</div>
+                    <div className="flex items-center justify-center h-64 text-zinc-500">Select an image to crop</div>
                   )}
                 </div>
               </Surface>
             </div>
             <div>
               <Surface variant="elevated" padding="lg">
-                <h2 className="text-lg font-semibold text-content-primary mb-4">Settings</h2>
+                <h2 className="text-lg font-semibold text-white mb-4">Settings</h2>
                 <div className="mb-4">
-                  <button onClick={() => fileInputRef.current?.click()} className="w-full px-4 py-3 bg-surface border border-border rounded-md text-content-secondary hover:bg-interactive-hover transition-colors-fast">
+                  <button onClick={() => fileInputRef.current?.click()} className="w-full px-4 py-3 bg-black border border-white/10 rounded-md text-zinc-400 hover:bg-white/5 transition-colors">
                     {file ? "Change Image" : "Select Image"}
                   </button>
                   <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
@@ -151,42 +152,42 @@ function ImageCropperInner(): React.JSX.Element {
                 {file && (
                   <>
                     <div className="mb-4">
-                      <label className="block text-sm text-content-secondary mb-2">Presets</label>
+                      <label className="block text-sm text-zinc-400 mb-2">Presets</label>
                       <div className="grid grid-cols-2 gap-2">
                         {presets.map((p) => (
-                          <button key={p.label} onClick={() => applyPreset(p.ratio)} className="px-3 py-2 text-sm bg-surface border border-border rounded hover:border-accent-green transition-colors-fast">{p.label}</button>
+                          <button key={p.label} onClick={() => applyPreset(p.ratio)} className="px-3 py-2 text-sm bg-black border border-white/10 rounded hover:border-white/30 transition-colors">{p.label}</button>
                         ))}
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3 mb-4">
                       <div>
-                        <label className="text-xs text-content-muted">X</label>
-                        <input type="number" value={crop.x} onChange={(e) => setCrop(prev => ({ ...prev, x: parseInt(e.target.value) || 0 }))} className="w-full px-2 py-1 bg-surface border border-border rounded text-content-primary text-sm" />
+                        <label className="text-xs text-zinc-500 font-mono">X</label>
+                        <input type="number" value={crop.x} onChange={(e) => setCrop(prev => ({ ...prev, x: parseInt(e.target.value) || 0 }))} className="w-full px-2 py-1 bg-black border border-white/10 rounded text-white text-sm" />
                       </div>
                       <div>
-                        <label className="text-xs text-content-muted">Y</label>
-                        <input type="number" value={crop.y} onChange={(e) => setCrop(prev => ({ ...prev, y: parseInt(e.target.value) || 0 }))} className="w-full px-2 py-1 bg-surface border border-border rounded text-content-primary text-sm" />
+                        <label className="text-xs text-zinc-500 font-mono">Y</label>
+                        <input type="number" value={crop.y} onChange={(e) => setCrop(prev => ({ ...prev, y: parseInt(e.target.value) || 0 }))} className="w-full px-2 py-1 bg-black border border-white/10 rounded text-white text-sm" />
                       </div>
                       <div>
-                        <label className="text-xs text-content-muted">Width</label>
-                        <input type="number" value={crop.width} onChange={(e) => setCrop(prev => ({ ...prev, width: parseInt(e.target.value) || 1 }))} className="w-full px-2 py-1 bg-surface border border-border rounded text-content-primary text-sm" />
+                        <label className="text-xs text-zinc-500 font-mono">Width</label>
+                        <input type="number" value={crop.width} onChange={(e) => setCrop(prev => ({ ...prev, width: parseInt(e.target.value) || 1 }))} className="w-full px-2 py-1 bg-black border border-white/10 rounded text-white text-sm" />
                       </div>
                       <div>
-                        <label className="text-xs text-content-muted">Height</label>
-                        <input type="number" value={crop.height} onChange={(e) => setCrop(prev => ({ ...prev, height: parseInt(e.target.value) || 1 }))} className="w-full px-2 py-1 bg-surface border border-border rounded text-content-primary text-sm" />
+                        <label className="text-xs text-zinc-500 font-mono">Height</label>
+                        <input type="number" value={crop.height} onChange={(e) => setCrop(prev => ({ ...prev, height: parseInt(e.target.value) || 1 }))} className="w-full px-2 py-1 bg-black border border-white/10 rounded text-white text-sm" />
                       </div>
                     </div>
                   </>
                 )}
-                {error && <div className="mb-4 p-3 bg-accent-red-muted border border-accent-red rounded text-accent-red text-sm">{error}</div>}
+                {error && <div className="mb-4 p-3 bg-zinc-900 border border-zinc-700 rounded text-zinc-300 text-sm">{error}</div>}
                 {result && (
-                  <div className="mb-4 p-3 bg-accent-green-muted border border-accent-green rounded">
-                    <p className="text-accent-green text-sm font-medium mb-2">Crop Complete</p>
-                    <p className="text-xs text-content-muted mb-2">{result.crop.output.dimensions} • {formatSize(result.crop.output.size)}</p>
-                    <a href={result.crop.output.downloadUrl} className="block text-center px-3 py-2 bg-accent-green text-background-primary text-sm rounded hover:opacity-90" download>Download</a>
+                  <div className="mb-4 p-3 bg-zinc-900 border border-zinc-600 rounded">
+                    <p className="text-white text-sm font-medium mb-2">Crop Complete</p>
+                    <p className="text-xs text-zinc-500 mb-2 font-mono">{result.crop.output.dimensions} • {formatSize(result.crop.output.size)}</p>
+                    <a href={result.crop.output.downloadUrl} className="block text-center px-3 py-2 bg-white text-black text-sm rounded hover:bg-zinc-200 transition-colors" download>Download</a>
                   </div>
                 )}
-                <button onClick={handleCrop} disabled={!file || crop.width < 1 || crop.height < 1 || loading} className="w-full px-4 py-3 bg-accent-green text-background-primary font-medium rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity">
+                <button onClick={handleCrop} disabled={!file || crop.width < 1 || crop.height < 1 || loading} className="w-full px-4 py-3 bg-white text-black font-medium rounded-md hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                   {loading ? "Cropping..." : "Crop Image"}
                 </button>
               </Surface>
@@ -200,6 +201,6 @@ function ImageCropperInner(): React.JSX.Element {
 }
 
 export default function ImageCropperPage(): React.JSX.Element {
-  const tool: ToolDefinition = { id: "image-cropper", name: "Image Cropper", description: "Crop and resize images", category: "image", accent: "green", layout: "live-playground", enabled: true, route: "/image/image-cropper" };
+  const tool: ToolDefinition = { id: "image-cropper", name: "Image Cropper", description: "Crop and resize images", category: "image", accent: "blue", layout: "live-playground", enabled: true, route: "/app/image/image-cropper" };
   return <ToolProvider tool={tool}><ImageCropperInner /></ToolProvider>;
 }

@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { PageHeader, Surface, Container } from "@/components/layout";
 import { ToolProvider, useTool } from "@/lib/tool-context";
 import type { ToolDefinition } from "@/lib/featureFlags";
+import { TactileDropzone } from "@/components/tool-ui/TactileDropzone";
+import { TactileFormatGrid, type FormatOption } from "@/components/tool-ui/TactileFormatGrid";
+import { TactileButton } from "@/components/tool-ui/TactileButton";
 
 // ============================================================================
 // TYPES
@@ -13,17 +16,14 @@ interface ConversionResult {
   input: {
     filename: string;
     size: number;
-    mimeType: string;
   };
   output: {
     filename: string;
     downloadUrl: string;
-    format: string;
-    quality: number;
     size: number;
+    quality: number;
     compressionRatio: string;
   };
-  duration: number;
 }
 
 // ============================================================================
@@ -38,80 +38,66 @@ function formatSize(bytes: number): string {
 }
 
 // ============================================================================
+// QUALITY OPTIONS
+// ============================================================================
+
+const QUALITY_OPTIONS: readonly FormatOption[] = [
+  { value: "65", label: "65%", desc: "Smallest size" },
+  { value: "75", label: "75%", desc: "Small size" },
+  { value: "85", label: "85%", desc: "Balanced" },
+  { value: "95", label: "95%", desc: "High quality" },
+] as const;
+
+// ============================================================================
 // PNG TO WEBP COMPONENT
 // ============================================================================
 
 function PngToWebpInner(): React.JSX.Element {
   const { tool } = useTool();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
   const [quality, setQuality] = useState(85);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ConversionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
-
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      setError(null);
-      setResult(null);
-      setProgress(0);
-    }
-  }, []);
 
   const handleConvert = useCallback(async () => {
     if (!file) return;
 
     setLoading(true);
     setError(null);
-    setProgress(10);
 
     const formData = new FormData();
     formData.append("file", file);
     formData.append("quality", quality.toString());
 
     try {
-      setProgress(30);
       const response = await fetch("/api/tools/png-to-webp", {
         method: "POST",
         body: formData,
       });
 
-      setProgress(80);
       const data = await response.json();
 
       if (!data.success) {
         setError(data.error?.message ?? "Conversion failed");
-        setProgress(0);
+        setLoading(false);
         return;
       }
 
-      setProgress(100);
       setResult(data.conversion);
+      setLoading(false);
     } catch {
       setError("Failed to connect to server");
-      setProgress(0);
-    } finally {
       setLoading(false);
     }
   }, [file, quality]);
-
-  const QUALITY_PRESETS = [
-    { value: 65, label: "65% - Smallest" },
-    { value: 75, label: "75% - Small" },
-    { value: 85, label: "85% - Balanced" },
-    { value: 95, label: "95% - High Quality" },
-  ];
 
   return (
     <div className="min-h-full">
       <PageHeader
         title={tool?.name ?? "PNG to WebP"}
         description="Convert PNG images to WebP format"
-        accent="purple"
         backButton={{ href: "/app" as const, label: "Back to Dashboard" }}
       />
 
@@ -120,68 +106,44 @@ function PngToWebpInner(): React.JSX.Element {
           <Surface variant="elevated" padding="lg">
             {/* File Upload */}
             <fieldset className="mb-6">
-              <legend className="text-lg font-semibold text-content-primary mb-4">
-                1. Select PNG Image
+              <legend className="text-lg font-semibold text-white mb-4">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
+                  1
+                </span>
+                Select PNG Image
               </legend>
-
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-accent-purple transition-colors-fast"
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/png"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-
-                {file ? (
-                  <div>
-                    <p className="text-content-primary font-medium">{file.name}</p>
-                    <p className="text-sm text-content-tertiary mt-1">
-                      {formatSize(file.size)}
-                    </p>
-                  </div>
-                ) : (
-                  <div>
-                    <p className="text-content-secondary">
-                      Click to select a PNG image
-                    </p>
-                    <p className="text-xs text-content-muted mt-1">
-                      Max 50MB
-                    </p>
-                  </div>
-                )}
-              </div>
+              <TactileDropzone
+                onFileSelect={(selectedFile) => {
+                  setFile(selectedFile);
+                  setError(null);
+                  setResult(null);
+                }}
+                accept="image/png"
+                currentFile={file}
+                maxSizeLabel="Max 50MB"
+                fileTypesLabel="PNG"
+              />
             </fieldset>
 
             {/* Quality Settings */}
             <fieldset className="mb-6">
-              <legend className="text-lg font-semibold text-content-primary mb-4">
-                2. Quality Settings
+              <legend className="text-lg font-semibold text-white mb-4">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
+                  2
+                </span>
+                Quality Settings
               </legend>
+              <TactileFormatGrid
+                options={QUALITY_OPTIONS}
+                value={quality.toString()}
+                onChange={(v) => setQuality(parseInt(v))}
+                columns={4}
+              />
 
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                {QUALITY_PRESETS.map((preset) => (
-                  <button
-                    key={preset.value}
-                    onClick={() => setQuality(preset.value)}
-                    className={`px-4 py-3 rounded-md text-sm font-medium transition-colors-fast ${
-                      quality === preset.value
-                        ? "bg-accent-purple text-background-primary"
-                        : "bg-surface border border-border text-content-secondary hover:bg-interactive-hover"
-                    }`}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-
-              <div>
+              <div className="mt-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-content-secondary">Custom Quality</span>
-                  <span className="text-sm font-mono text-content-primary">{quality}%</span>
+                  <span className="text-sm text-zinc-400">Custom Quality</span>
+                  <span className="text-sm font-mono text-white">{quality}%</span>
                 </div>
                 <input
                   type="range"
@@ -194,60 +156,42 @@ function PngToWebpInner(): React.JSX.Element {
               </div>
             </fieldset>
 
-            {/* Progress */}
-            {loading && progress > 0 && (
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-content-secondary">Converting...</span>
-                  <span className="text-sm text-content-primary">{progress}%</span>
-                </div>
-                <div className="w-full bg-surface-muted rounded-full h-2">
-                  <div
-                    className="bg-accent-purple h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Error */}
+            {/* Error Display */}
             {error && (
-              <div className="mb-6 p-4 bg-accent-red-muted border border-accent-red rounded-md">
-                <p className="text-accent-red text-sm">{error}</p>
+              <div className="mb-6 p-4 bg-zinc-900/50 border border-zinc-700 rounded-md">
+                <p className="text-zinc-300 text-sm">{error}</p>
               </div>
             )}
 
-            {/* Result */}
-            {result && (
+            {/* Result Display */}
+            {result && !loading && (
               <fieldset className="mb-6">
-                <legend className="text-lg font-semibold text-accent-green mb-4">
+                <legend className="text-lg font-semibold text-zinc-200 mb-4">
                   Conversion Complete
                 </legend>
-
-                <div className="bg-accent-green-muted border border-accent-green rounded-md p-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                     <div>
-                      <p className="text-content-muted">Original Size</p>
-                      <p className="text-content-primary">{formatSize(result.input.size)}</p>
+                      <p className="text-zinc-500">Original Size</p>
+                      <p className="text-white font-medium font-mono">{formatSize(result.input.size)}</p>
                     </div>
                     <div>
-                      <p className="text-content-muted">New Size</p>
-                      <p className="text-content-primary">{formatSize(result.output.size)}</p>
+                      <p className="text-zinc-500">New Size</p>
+                      <p className="text-white font-medium font-mono">{formatSize(result.output.size)}</p>
                     </div>
                     <div>
-                      <p className="text-content-muted">Compression</p>
-                      <p className="text-accent-green font-medium">{result.output.compressionRatio}</p>
+                      <p className="text-zinc-500">Compression</p>
+                      <p className="text-white font-medium font-mono">{result.output.compressionRatio}</p>
                     </div>
                     <div>
-                      <p className="text-content-muted">Quality</p>
-                      <p className="text-content-primary">{result.output.quality}%</p>
+                      <p className="text-zinc-500">Quality</p>
+                      <p className="text-white font-medium font-mono">{result.output.quality}%</p>
                     </div>
                   </div>
-
                   <a
                     href={result.output.downloadUrl}
-                    className="mt-4 block w-full px-4 py-3 bg-accent-green text-background-primary font-medium text-center rounded-md hover:opacity-90 transition-opacity"
                     download
+                    className="block w-full px-6 py-3 bg-white text-black font-medium text-center rounded-md hover:bg-zinc-200 hover:-translate-y-0.5 shadow-[0_4px_20px_rgba(255,255,255,0.1)] transition-all duration-150"
                   >
                     Download WebP
                   </a>
@@ -255,32 +199,34 @@ function PngToWebpInner(): React.JSX.Element {
               </fieldset>
             )}
 
-            {/* Actions */}
-            <div className="flex gap-3">
-              <button
-                onClick={handleConvert}
-                disabled={!file || loading}
-                className="flex-1 px-6 py-3 bg-accent-purple text-background-primary font-medium rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+            {/* Action Buttons */}
+            <div className="flex gap-4">
+              <TactileButton
+                onClick={result ? () => {
+                  setFile(null);
+                  setResult(null);
+                  setError(null);
+                } : handleConvert}
+                disabled={!file || (loading && !result)}
+                loading={loading && !result}
+                variant={result ? "secondary" : "primary"}
+                fullWidth
               >
-                {loading ? "Converting..." : "Convert to WebP"}
-              </button>
+                {result ? "Start Over" : loading ? "Converting..." : "Convert to WebP"}
+              </TactileButton>
 
-              {file && (
-                <button
+              {file && !result && (
+                <TactileButton
+                  variant="secondary"
                   onClick={() => {
                     setFile(null);
                     setResult(null);
                     setError(null);
-                    setProgress(0);
-                    if (fileInputRef.current) {
-                      fileInputRef.current.value = "";
-                    }
                   }}
                   disabled={loading}
-                  className="px-6 py-3 bg-surface border border-border text-content-secondary font-medium rounded-md hover:bg-interactive-hover disabled:opacity-50 transition-colors-fast"
                 >
                   Clear
-                </button>
+                </TactileButton>
               )}
             </div>
           </Surface>
@@ -300,10 +246,10 @@ export default function PngToWebpPage(): React.JSX.Element {
     name: "PNG to WebP",
     description: "Convert between PNG and WebP formats",
     category: "image",
-    accent: "purple",
+    accent: "blue",
     layout: "upload-center",
     enabled: true,
-    route: "/image/png-to-webp",
+    route: "/app/image/png-to-webp",
   };
 
   return (

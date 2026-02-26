@@ -57,54 +57,54 @@ function FaviconGeneratorInner(): React.JSX.Element {
 
   return (
     <div className="min-h-full">
-      <PageHeader title={tool?.name ?? "Favicon Generator"} description="Generate favicons for websites" accent="yellow" backButton={{ href: "/app" as const, label: "Back to Dashboard" }} />
+      <PageHeader title={tool?.name ?? "Favicon Generator"} description="Generate favicons for websites" backButton={{ href: "/app" as const, label: "Back to Dashboard" }} />
       <div className="p-6">
         <Container size="md" className="max-w-2xl mx-auto">
           <Surface variant="elevated" padding="lg">
             <fieldset className="mb-6">
-              <legend className="text-lg font-semibold text-content-primary mb-4">1. Select Logo/Image</legend>
-              <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-accent-yellow transition-colors-fast">
+              <legend className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">1. Select Logo/Image</legend>
+              <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-white/20 rounded-lg p-8 text-center cursor-pointer hover:border-white/40 transition-colors bg-black/50">
                 <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
                 {file ? (
                   <div>
                     {preview && <img src={preview} alt="Preview" className="max-h-24 mx-auto mb-2 rounded" />}
-                    <p className="text-content-primary font-medium">{file.name}</p>
-                    <p className="text-sm text-content-tertiary">{formatSize(file.size)}</p>
+                    <p className="text-white font-medium">{file.name}</p>
+                    <p className="text-sm text-zinc-500 font-mono">{formatSize(file.size)}</p>
                   </div>
                 ) : (
                   <div>
-                    <p className="text-content-secondary">Click to select an image</p>
-                    <p className="text-xs text-content-muted mt-1">Square image recommended • Max 10MB</p>
+                    <p className="text-zinc-400">Click to select an image</p>
+                    <p className="text-xs text-zinc-500 mt-1">Square image recommended • Max 10MB</p>
                   </div>
                 )}
               </div>
             </fieldset>
-            <div className="bg-surface-muted rounded-md p-4 mb-6">
-              <p className="text-sm text-content-muted">
+            <div className="bg-zinc-900/50 rounded-md p-4 mb-6">
+              <p className="text-sm text-zinc-400">
                 <strong>Generates:</strong> favicon.ico, favicon-16x16.png, favicon-32x32.png, favicon-48x48.png,
                 favicon-64x64.png, apple-touch-icon.png (180x180), favicon-192x192.png, favicon-512x512.png
               </p>
             </div>
-            {error && <div className="mb-6 p-4 bg-accent-red-muted border border-accent-red rounded-md"><p className="text-accent-red text-sm">{error}</p></div>}
+            {error && <div className="mb-6 p-4 bg-zinc-900 border border-zinc-700 rounded-md"><p className="text-zinc-300 text-sm">{error}</p></div>}
             {result && (
               <fieldset className="mb-6">
-                <legend className="text-lg font-semibold text-accent-green mb-4">Favicons Generated</legend>
-                <div className="bg-accent-green-muted border border-accent-green rounded-md p-4">
+                <legend className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">2. Favicons Generated</legend>
+                <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
                   <div className="grid grid-cols-2 gap-2 mb-4">
                     {result.favicon.files.slice(0, 6).map((f, i) => (
-                      <a key={i} href={f.downloadUrl} className="px-3 py-2 bg-surface border border-border rounded text-sm text-content-secondary hover:text-content-primary transition-colors-fast" download>
-                        {f.filename} ({f.size}px)
+                      <a key={i} href={f.downloadUrl} className="px-3 py-2 bg-black border border-white/10 rounded text-sm text-zinc-400 hover:text-white transition-colors" download>
+                        {f.filename}
                       </a>
                     ))}
                   </div>
                   <div className="mt-4">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold text-content-muted uppercase">HTML Snippet</span>
-                      <button onClick={copyHtmlSnippet} className={`px-2 py-1 text-xs rounded ${copied ? "bg-accent-green text-background-primary" : "bg-surface border border-border text-content-secondary hover:bg-interactive-hover"}`}>
+                      <span className="text-xs font-semibold text-zinc-500 uppercase font-mono">HTML Snippet</span>
+                      <button onClick={copyHtmlSnippet} className={`px-2 py-1 text-xs rounded ${copied ? "bg-white text-black" : "bg-black border border-white/10 text-zinc-400 hover:bg-white/5"}`}>
                         {copied ? "Copied!" : "Copy"}
                       </button>
                     </div>
-                    <pre className="p-3 bg-surface rounded text-xs text-content-primary font-mono overflow-x-auto">
+                    <pre className="p-3 bg-black rounded text-xs text-white font-mono overflow-x-auto">
                       {result.favicon.htmlSnippet}
                     </pre>
                   </div>
@@ -112,10 +112,10 @@ function FaviconGeneratorInner(): React.JSX.Element {
               </fieldset>
             )}
             <div className="flex gap-3">
-              <button onClick={handleGenerate} disabled={!file || loading} className="flex-1 px-6 py-3 bg-accent-yellow text-background-primary font-medium rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity">
+              <button onClick={handleGenerate} disabled={!file || loading} className="flex-1 px-6 py-3 bg-white text-black font-medium rounded-md hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                 {loading ? "Generating..." : "Generate Favicons"}
               </button>
-              {file && <button onClick={() => { setFile(null); setPreview(""); setResult(null); setError(null); if (fileInputRef.current) fileInputRef.current.value = ""; }} disabled={loading} className="px-6 py-3 bg-surface border border-border text-content-secondary font-medium rounded-md hover:bg-interactive-hover disabled:opacity-50 transition-colors-fast">Clear</button>}
+              {file && <button onClick={() => { setFile(null); setPreview(""); setResult(null); setError(null); setLoading(false); if (fileInputRef.current) fileInputRef.current.value = ""; }} disabled={loading} className="px-6 py-3 bg-black border border-white/10 text-zinc-400 font-medium rounded-md hover:bg-white/5 disabled:opacity-50 transition-colors">Clear</button>}
             </div>
           </Surface>
         </Container>
@@ -125,6 +125,6 @@ function FaviconGeneratorInner(): React.JSX.Element {
 }
 
 export default function FaviconGeneratorPage(): React.JSX.Element {
-  const tool: ToolDefinition = { id: "favicon-generator", name: "Favicon Generator", description: "Generate favicons for websites", category: "dev", accent: "yellow", layout: "upload-center", enabled: true, route: "/dev/favicon-generator" };
+  const tool: ToolDefinition = { id: "favicon-generator", name: "Favicon Generator", description: "Generate favicons for websites", category: "dev", accent: "blue", layout: "upload-center", enabled: true, route: "/app/dev/favicon-generator" };
   return <ToolProvider tool={tool}><FaviconGeneratorInner /></ToolProvider>;
 }

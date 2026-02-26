@@ -3,7 +3,9 @@
 import { useState, useCallback } from "react";
 import { PageHeader, Surface, Container } from "@/components/layout";
 import { ToolProvider, useTool } from "@/lib/tool-context";
-import { MediaTimeline, FileDropZone } from "@/components/tool-ui";
+import { MediaTimeline } from "@/components/tool-ui";
+import { TactileDropzone } from "@/components/tool-ui/TactileDropzone";
+import { TactileButton } from "@/components/tool-ui/TactileButton";
 import type { ToolDefinition } from "@/lib/featureFlags";
 
 function formatSize(bytes: number): string {
@@ -82,19 +84,33 @@ function VideoTrimmerInner(): React.JSX.Element {
           <Surface variant="elevated" padding="lg">
             <fieldset className="mb-6">
               <legend className="text-lg font-semibold text-white mb-4">
-                1. Select Video
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
+                  1
+                </span>
+                Select Video
               </legend>
-              <FileDropZone
-                onFileSelect={handleFileSelect}
-                fileType="video"
+              <TactileDropzone
+                onFileSelect={(selectedFile) => {
+                  setFile(selectedFile);
+                  setError(null);
+                  setResult(null);
+                  setStartTime(0);
+                  setEndTime(0);
+                }}
+                accept="video/*"
                 currentFile={file}
+                maxSizeLabel="Max 200MB"
+                fileTypesLabel="MP4, WebM, MOV"
               />
             </fieldset>
 
             {file && (
               <fieldset className="mb-6">
                 <legend className="text-lg font-semibold text-white mb-4">
-                  2. Trim Settings
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
+                    2
+                  </span>
+                  Trim Settings
                 </legend>
                 <MediaTimeline
                   file={file}
@@ -121,24 +137,24 @@ function VideoTrimmerInner(): React.JSX.Element {
                 <legend className="text-lg font-semibold text-zinc-200 mb-4">
                   Trim Complete
                 </legend>
-                <div className="bg-zinc-900 border border-zinc-700 rounded-md p-4">
+                <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
                   <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                     <div>
                       <p className="text-zinc-500">Trimmed From</p>
-                      <p className="text-zinc-200">
+                      <p className="text-white font-mono">
                         {result.trim.settings.startTime} to {result.trim.settings.endTime}
                       </p>
                     </div>
                     <div>
                       <p className="text-zinc-500">Output Size</p>
-                      <p className="text-zinc-200">
+                      <p className="text-white font-medium font-mono">
                         {formatSize(result.trim.output.size)}
                       </p>
                     </div>
                   </div>
                   <a
                     href={result.trim.output.downloadUrl}
-                    className="block w-full px-4 py-3 bg-white text-black font-medium text-center rounded-md hover:bg-zinc-200 transition-colors"
+                    className="block w-full px-6 py-3 bg-white text-black font-medium text-center rounded-md hover:bg-zinc-200 hover:-translate-y-0.5 shadow-[0_4px_20px_rgba(255,255,255,0.1)] transition-all duration-150"
                     download
                   >
                     Download Video
@@ -147,22 +163,37 @@ function VideoTrimmerInner(): React.JSX.Element {
               </fieldset>
             )}
 
-            <div className="flex gap-3">
-              <button
-                onClick={handleTrim}
-                disabled={!file || loading || endTime <= startTime}
-                className="flex-1 px-6 py-3 bg-white text-black font-medium rounded-md hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            <div className="flex gap-4">
+              <TactileButton
+                onClick={result ? () => {
+                  setFile(null);
+                  setResult(null);
+                  setError(null);
+                  setStartTime(0);
+                  setEndTime(0);
+                } : handleTrim}
+                disabled={!file || loading || (endTime <= startTime && !result)}
+                loading={loading && !result}
+                variant={result ? "secondary" : "primary"}
+                fullWidth
               >
-                {loading ? "Trimming..." : "Trim Video"}
-              </button>
-              {file && (
-                <button
-                  onClick={handleClear}
+                {result ? "Start Over" : loading ? "Trimming..." : "Trim Video"}
+              </TactileButton>
+
+              {file && !result && (
+                <TactileButton
+                  variant="secondary"
+                  onClick={() => {
+                    setFile(null);
+                    setResult(null);
+                    setError(null);
+                    setStartTime(0);
+                    setEndTime(0);
+                  }}
                   disabled={loading}
-                  className="px-6 py-3 bg-zinc-900 border border-white/10 text-zinc-400 font-medium rounded-md hover:bg-white/5 hover:text-white disabled:opacity-50 transition-colors"
                 >
                   Clear
-                </button>
+                </TactileButton>
               )}
             </div>
           </Surface>
@@ -178,10 +209,10 @@ export default function VideoTrimmerPage(): React.JSX.Element {
     name: "Video Trimmer",
     description: "Trim and cut video clips",
     category: "media",
-    accent: "cyan",
-    layout: "split-panel",
+    accent: "blue",
+    layout: "upload-center",
     enabled: true,
-    route: "/media/video-trimmer",
+    route: "/app/media/video-trimmer",
   };
   return (
     <ToolProvider tool={tool}>

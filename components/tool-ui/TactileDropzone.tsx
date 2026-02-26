@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { Cloud, FileVideo } from "lucide-react";
+import { Cloud, Film } from "lucide-react";
 
 interface TactileDropzoneProps {
   onFileSelect: (file: File) => void;
@@ -116,7 +116,7 @@ export function TactileDropzone({
 
       {currentFile ? (
         <div className="flex items-center justify-center gap-3">
-          <FileVideo className="w-5 h-5 text-zinc-400" />
+          <Film className="w-4 h-4 text-zinc-400" />
           <div>
             <p className="text-white font-medium">{currentFile.name}</p>
             <p id={descriptionId} className="text-sm text-zinc-500 mt-0.5">{formatSize(currentFile.size)}</p>

@@ -74,7 +74,6 @@ function GridGeneratorInner(): React.JSX.Element {
       <PageHeader
         title={tool?.name ?? "Grid Generator"}
         description="Create CSS Grid layouts"
-        accent="cyan"
         backButton={{ href: "/app" as const, label: "Back to Dashboard" }}
       />
 
@@ -85,9 +84,9 @@ function GridGeneratorInner(): React.JSX.Element {
             <div className="lg:col-span-2">
               <Surface variant="elevated" padding="lg">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-content-primary">Preview</h2>
+                  <h2 className="text-lg font-semibold text-white">Preview</h2>
                   <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 text-sm text-content-secondary">
+                    <label className="flex items-center gap-2 text-sm text-zinc-400">
                       Items:
                       <input
                         type="number"
@@ -95,7 +94,7 @@ function GridGeneratorInner(): React.JSX.Element {
                         max={20}
                         value={itemCount}
                         onChange={(e) => setItemCount(Math.min(20, Math.max(1, parseInt(e.target.value) || 1)))}
-                        className="w-16 px-2 py-1 bg-surface border border-border rounded text-content-primary text-center"
+                        className="w-16 px-2 py-1 bg-black border border-white/10 rounded text-white text-center font-mono"
                       />
                     </label>
                   </div>
@@ -103,7 +102,7 @@ function GridGeneratorInner(): React.JSX.Element {
 
                 {/* Grid Container */}
                 <div
-                  className="min-h-[300px] p-4 bg-surface-muted rounded-lg border-2 border-dashed border-border"
+                  className="min-h-[300px] p-4 bg-zinc-900/50 rounded-lg border-2 border-dashed border-white/10"
                   style={{
                     display: "grid",
                     gridTemplateColumns: getTemplateColumns(),
@@ -119,7 +118,7 @@ function GridGeneratorInner(): React.JSX.Element {
                   {Array.from({ length: itemCount }).map((_, index) => (
                     <div
                       key={index}
-                      className={`flex items-center justify-center text-background-primary font-bold text-lg rounded-lg min-h-[60px] ${colors[index % colors.length]}`}
+                      className={`flex items-center justify-center text-white font-bold text-lg rounded-lg min-h-[60px] ${colors[index % colors.length]}`}
                     >
                       {index + 1}
                     </div>
@@ -127,23 +126,23 @@ function GridGeneratorInner(): React.JSX.Element {
                 </div>
 
                 {/* CSS Output */}
-                <div className="mt-4 p-4 bg-surface-muted rounded-md">
+                <div className="mt-4 p-4 bg-zinc-900/50 rounded-md">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-content-muted uppercase tracking-wider">
+                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider font-mono">
                       CSS Code
                     </span>
                     <button
                       onClick={copyCss}
-                      className={`px-3 py-1 text-xs rounded transition-colors-fast ${
+                      className={`px-3 py-1 text-xs rounded transition-colors ${
                         copied
-                          ? "bg-accent-green text-background-primary"
-                          : "bg-surface border border-border text-content-secondary hover:bg-interactive-hover"
+                          ? "bg-white text-black"
+                          : "bg-black border border-white/10 text-zinc-400 hover:bg-white/5"
                       }`}
                     >
                       {copied ? "Copied!" : "Copy"}
                     </button>
                   </div>
-                  <pre className="text-xs text-content-primary font-mono overflow-x-auto whitespace-pre">
+                  <pre className="text-xs text-white font-mono overflow-x-auto whitespace-pre">
                     {generateCss()}
                   </pre>
                 </div>
@@ -154,14 +153,14 @@ function GridGeneratorInner(): React.JSX.Element {
             <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-200px)]">
               {/* Grid Structure */}
               <Surface variant="elevated" padding="md">
-                <h3 className="text-sm font-semibold text-content-muted uppercase tracking-wider mb-4">
+                <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-4">
                   Grid Structure
                 </h3>
 
                 <div className="space-y-4">
                   {/* Columns */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-1 block">
+                    <label className="text-xs text-zinc-400 mb-1 block">
                       Columns: {gridStyles.columns}
                     </label>
                     <input
@@ -176,7 +175,7 @@ function GridGeneratorInner(): React.JSX.Element {
 
                   {/* Rows */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-1 block">
+                    <label className="text-xs text-zinc-400 mb-1 block">
                       Rows: {gridStyles.rows} (0 = auto)
                     </label>
                     <input
@@ -191,7 +190,7 @@ function GridGeneratorInner(): React.JSX.Element {
 
                   {/* Column Gap */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-1 block">
+                    <label className="text-xs text-zinc-400 mb-1 block">
                       Column Gap: {gridStyles.columnGap}px
                     </label>
                     <input
@@ -206,7 +205,7 @@ function GridGeneratorInner(): React.JSX.Element {
 
                   {/* Row Gap */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-1 block">
+                    <label className="text-xs text-zinc-400 mb-1 block">
                       Row Gap: {gridStyles.rowGap}px
                     </label>
                     <input
@@ -221,7 +220,7 @@ function GridGeneratorInner(): React.JSX.Element {
 
                   {/* Custom Template Columns */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-1 block">
+                    <label className="text-xs text-zinc-400 mb-1 block">
                       Custom grid-template-columns
                     </label>
                     <input
@@ -229,14 +228,14 @@ function GridGeneratorInner(): React.JSX.Element {
                       value={gridStyles.gridTemplateColumns}
                       onChange={(e) => updateGridStyle("gridTemplateColumns", e.target.value)}
                       placeholder="e.g., 200px 1fr 100px"
-                      className="w-full px-2 py-1.5 bg-surface border border-border rounded text-content-primary text-xs font-mono"
+                      className="w-full px-2 py-1.5 bg-black border border-white/10 rounded text-white text-xs font-mono"
                     />
-                    <p className="text-xs text-content-muted mt-1">Leave empty for repeat(columns, 1fr)</p>
+                    <p className="text-xs text-zinc-500 mt-1">Leave empty for repeat(columns, 1fr)</p>
                   </div>
 
                   {/* Custom Template Rows */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-1 block">
+                    <label className="text-xs text-zinc-400 mb-1 block">
                       Custom grid-template-rows
                     </label>
                     <input
@@ -244,7 +243,7 @@ function GridGeneratorInner(): React.JSX.Element {
                       value={gridStyles.gridTemplateRows}
                       onChange={(e) => updateGridStyle("gridTemplateRows", e.target.value)}
                       placeholder="e.g., 100px auto 100px"
-                      className="w-full px-2 py-1.5 bg-surface border border-border rounded text-content-primary text-xs font-mono"
+                      className="w-full px-2 py-1.5 bg-black border border-white/10 rounded text-white text-xs font-mono"
                     />
                   </div>
                 </div>
@@ -252,18 +251,18 @@ function GridGeneratorInner(): React.JSX.Element {
 
               {/* Alignment */}
               <Surface variant="elevated" padding="md">
-                <h3 className="text-sm font-semibold text-content-muted uppercase tracking-wider mb-4">
+                <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-4">
                   Alignment
                 </h3>
 
                 <div className="space-y-3">
                   {/* Justify Content */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-1 block">justify-content</label>
+                    <label className="text-xs text-zinc-400 mb-1 block">justify-content</label>
                     <select
                       value={gridStyles.justifyContent}
                       onChange={(e) => updateGridStyle("justifyContent", e.target.value)}
-                      className="w-full px-2 py-1.5 bg-surface border border-border rounded text-content-primary text-xs"
+                      className="w-full px-2 py-1.5 bg-black border border-white/10 rounded text-white text-xs"
                     >
                       <option value="stretch">stretch</option>
                       <option value="start">start</option>
@@ -277,11 +276,11 @@ function GridGeneratorInner(): React.JSX.Element {
 
                   {/* Align Content */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-1 block">align-content</label>
+                    <label className="text-xs text-zinc-400 mb-1 block">align-content</label>
                     <select
                       value={gridStyles.alignContent}
                       onChange={(e) => updateGridStyle("alignContent", e.target.value)}
-                      className="w-full px-2 py-1.5 bg-surface border border-border rounded text-content-primary text-xs"
+                      className="w-full px-2 py-1.5 bg-black border border-white/10 rounded text-white text-xs"
                     >
                       <option value="stretch">stretch</option>
                       <option value="start">start</option>
@@ -295,11 +294,11 @@ function GridGeneratorInner(): React.JSX.Element {
 
                   {/* Align Items */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-1 block">align-items</label>
+                    <label className="text-xs text-zinc-400 mb-1 block">align-items</label>
                     <select
                       value={gridStyles.alignItems}
                       onChange={(e) => updateGridStyle("alignItems", e.target.value)}
-                      className="w-full px-2 py-1.5 bg-surface border border-border rounded text-content-primary text-xs"
+                      className="w-full px-2 py-1.5 bg-black border border-white/10 rounded text-white text-xs"
                     >
                       <option value="stretch">stretch</option>
                       <option value="start">start</option>
@@ -311,11 +310,11 @@ function GridGeneratorInner(): React.JSX.Element {
 
                   {/* Justify Items */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-1 block">justify-items</label>
+                    <label className="text-xs text-zinc-400 mb-1 block">justify-items</label>
                     <select
                       value={gridStyles.justifyItems}
                       onChange={(e) => updateGridStyle("justifyItems", e.target.value)}
-                      className="w-full px-2 py-1.5 bg-surface border border-border rounded text-content-primary text-xs"
+                      className="w-full px-2 py-1.5 bg-black border border-white/10 rounded text-white text-xs"
                     >
                       <option value="stretch">stretch</option>
                       <option value="start">start</option>
@@ -328,7 +327,7 @@ function GridGeneratorInner(): React.JSX.Element {
 
               {/* Common Presets */}
               <Surface variant="elevated" padding="md">
-                <h3 className="text-sm font-semibold text-content-muted uppercase tracking-wider mb-3">
+                <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-3">
                   Presets
                 </h3>
                 <div className="grid grid-cols-2 gap-2">
@@ -346,7 +345,7 @@ function GridGeneratorInner(): React.JSX.Element {
                         updateGridStyle("gridTemplateColumns", preset.templateCols || "");
                         updateGridStyle("gridTemplateRows", preset.templateRows || "");
                       }}
-                      className="px-3 py-2 text-xs bg-surface border border-border rounded hover:border-accent-cyan hover:text-accent-cyan transition-colors-fast"
+                      className="px-3 py-2 text-xs bg-black border border-white/10 rounded hover:border-white/30 hover:text-white transition-colors text-zinc-400"
                     >
                       {preset.name}
                     </button>
@@ -371,10 +370,10 @@ export default function GridGeneratorPage(): React.JSX.Element {
     name: "Grid Generator",
     description: "Create CSS Grid layouts",
     category: "dev",
-    accent: "cyan",
+    accent: "blue",
     layout: "live-playground",
     enabled: true,
-    route: "/dev/grid-generator",
+    route: "/app/dev/grid-generator",
   };
 
   return (

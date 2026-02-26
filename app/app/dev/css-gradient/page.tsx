@@ -105,7 +105,6 @@ function CssGradientInner(): React.JSX.Element {
       <PageHeader
         title={tool?.name ?? "CSS Gradient Generator"}
         description="Create CSS gradients visually"
-        accent="purple"
         backButton={{ href: "/app" as const, label: "Back to Dashboard" }}
       />
 
@@ -115,32 +114,32 @@ function CssGradientInner(): React.JSX.Element {
             {/* Preview */}
             <div className="lg:col-span-2">
               <Surface variant="elevated" padding="lg">
-                <h2 className="text-lg font-semibold text-content-primary mb-4">Preview</h2>
+                <h2 className="text-lg font-semibold text-white mb-4">Preview</h2>
 
                 {/* Gradient Preview */}
                 <div
-                  className="aspect-video rounded-lg shadow-lg"
+                  className="aspect-video rounded-lg shadow-lg border border-white/10"
                   style={{ background: generateCss() }}
                 />
 
                 {/* CSS Output */}
-                <div className="mt-4 p-4 bg-surface-muted rounded-md">
+                <div className="mt-4 p-4 bg-zinc-900/50 rounded-md">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-content-muted uppercase tracking-wider">
+                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider font-mono">
                       CSS Code
                     </span>
                     <button
                       onClick={copyCss}
-                      className={`px-3 py-1 text-xs rounded transition-colors-fast ${
+                      className={`px-3 py-1 text-xs rounded transition-colors ${
                         copied === "css"
-                          ? "bg-accent-green text-background-primary"
-                          : "bg-surface border border-border text-content-secondary hover:bg-interactive-hover"
+                          ? "bg-white text-black"
+                          : "bg-black border border-white/10 text-zinc-400 hover:bg-white/5"
                       }`}
                     >
                       {copied === "css" ? "Copied!" : "Copy"}
                     </button>
                   </div>
-                  <code className="text-sm text-content-primary font-mono break-all">
+                  <code className="text-sm text-white font-mono break-all">
                     background: {generateCss()};
                   </code>
                 </div>
@@ -150,7 +149,7 @@ function CssGradientInner(): React.JSX.Element {
             {/* Controls */}
             <div className="space-y-6">
               <Surface variant="elevated" padding="lg">
-                <h3 className="text-sm font-semibold text-content-muted uppercase tracking-wider mb-4">
+                <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-4">
                   Gradient Type
                 </h3>
                 <div className="grid grid-cols-3 gap-2">
@@ -158,10 +157,10 @@ function CssGradientInner(): React.JSX.Element {
                     <button
                       key={type}
                       onClick={() => setGradientType(type)}
-                      className={`px-3 py-2 text-sm font-medium rounded capitalize transition-colors-fast ${
+                      className={`px-3 py-2 text-sm font-medium rounded capitalize transition-colors ${
                         gradientType === type
-                          ? "bg-accent-purple text-background-primary"
-                          : "bg-surface border border-border text-content-secondary hover:bg-interactive-hover"
+                          ? "bg-white text-black"
+                          : "bg-black border border-white/10 text-zinc-400 hover:bg-white/5"
                       }`}
                     >
                       {type}
@@ -172,15 +171,15 @@ function CssGradientInner(): React.JSX.Element {
 
               {gradientType !== "radial" && (
                 <Surface variant="elevated" padding="lg">
-                  <h3 className="text-sm font-semibold text-content-muted uppercase tracking-wider mb-4">
+                  <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-4">
                     Direction
                   </h3>
 
                   {/* Angle Slider */}
                   <div className="mb-4">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-content-secondary">Angle</span>
-                      <span className="text-sm font-mono text-content-primary">{angle}°</span>
+                      <span className="text-sm text-zinc-400">Angle</span>
+                      <span className="text-sm font-mono text-white">{angle}°</span>
                     </div>
                     <input
                       type="range"
@@ -200,10 +199,10 @@ function CssGradientInner(): React.JSX.Element {
                         onClick={() => {
                           setAngle(d.angle);
                         }}
-                        className={`px-3 py-2 text-lg rounded transition-colors-fast ${
+                        className={`px-3 py-2 text-lg rounded transition-colors ${
                           angle === d.angle
-                            ? "bg-accent-purple text-background-primary"
-                            : "bg-surface border border-border text-content-secondary hover:bg-interactive-hover"
+                            ? "bg-white text-black"
+                            : "bg-black border border-white/10 text-zinc-400 hover:bg-white/5"
                         }`}
                         title={d.id}
                       >
@@ -215,7 +214,7 @@ function CssGradientInner(): React.JSX.Element {
               )}
 
               <Surface variant="elevated" padding="lg">
-                <h3 className="text-sm font-semibold text-content-muted uppercase tracking-wider mb-4">
+                <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-4">
                   Color Stops
                 </h3>
 
@@ -226,13 +225,13 @@ function CssGradientInner(): React.JSX.Element {
                         type="color"
                         value={stop.color}
                         onChange={(e) => updateColorStop(index, { color: e.target.value })}
-                        className="w-10 h-10 rounded cursor-pointer border border-border"
+                        className="w-10 h-10 rounded cursor-pointer border border-white/10"
                       />
                       <input
                         type="text"
                         value={stop.color}
                         onChange={(e) => updateColorStop(index, { color: e.target.value })}
-                        className="flex-1 px-3 py-2 bg-surface border border-border rounded text-content-primary text-sm font-mono"
+                        className="flex-1 px-3 py-2 bg-black border border-white/10 rounded text-white text-sm font-mono"
                       />
                       <input
                         type="number"
@@ -240,13 +239,13 @@ function CssGradientInner(): React.JSX.Element {
                         max={100}
                         value={stop.position}
                         onChange={(e) => updateColorStop(index, { position: parseInt(e.target.value) || 0 })}
-                        className="w-16 px-2 py-2 bg-surface border border-border rounded text-content-primary text-sm text-center"
+                        className="w-16 px-2 py-2 bg-black border border-white/10 rounded text-white text-sm text-center font-mono"
                       />
-                      <span className="text-xs text-content-muted">%</span>
+                      <span className="text-xs text-zinc-500">%</span>
                       {colorStops.length > 2 && (
                         <button
                           onClick={() => removeColorStop(index)}
-                          className="px-2 py-1 text-accent-red hover:bg-accent-red-muted rounded transition-colors-fast"
+                          className="px-2 py-1 text-zinc-400 hover:text-white rounded transition-colors"
                         >
                           ×
                         </button>
@@ -257,14 +256,14 @@ function CssGradientInner(): React.JSX.Element {
 
                 <button
                   onClick={addColorStop}
-                  className="mt-4 w-full px-4 py-2 border border-dashed border-border text-content-secondary text-sm rounded hover:border-accent-purple hover:text-accent-purple transition-colors-fast"
+                  className="mt-4 w-full px-4 py-2 border border-dashed border-white/10 text-zinc-400 text-sm rounded hover:border-white/30 hover:text-white transition-colors"
                 >
                   + Add Color Stop
                 </button>
               </Surface>
 
               <Surface variant="elevated" padding="lg">
-                <h3 className="text-sm font-semibold text-content-muted uppercase tracking-wider mb-4">
+                <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-4">
                   Presets
                 </h3>
                 <div className="grid grid-cols-2 gap-2">
@@ -272,7 +271,7 @@ function CssGradientInner(): React.JSX.Element {
                     <button
                       key={preset.name}
                       onClick={() => applyPreset(preset)}
-                      className="p-2 rounded border border-border hover:border-accent-purple transition-colors-fast"
+                      className="p-2 rounded border border-white/10 hover:border-white/30 transition-colors"
                     >
                       <div
                         className="aspect-video rounded mb-1"
@@ -280,7 +279,7 @@ function CssGradientInner(): React.JSX.Element {
                           background: `linear-gradient(to right, ${preset.stops.map(s => `${s.color} ${s.position}%`).join(", ")})`,
                         }}
                       />
-                      <span className="text-xs text-content-secondary">{preset.name}</span>
+                      <span className="text-xs text-zinc-400">{preset.name}</span>
                     </button>
                   ))}
                 </div>
@@ -303,10 +302,10 @@ export default function CssGradientPage(): React.JSX.Element {
     name: "CSS Gradient Generator",
     description: "Create CSS gradients visually",
     category: "dev",
-    accent: "purple",
+    accent: "blue",
     layout: "live-playground",
     enabled: true,
-    route: "/dev/css-gradient",
+    route: "/app/dev/css-gradient",
   };
 
   return (

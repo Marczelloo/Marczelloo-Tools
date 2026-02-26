@@ -42,28 +42,28 @@ function WebsiteScreenshotInner(): React.JSX.Element {
 
   return (
     <div className="min-h-full">
-      <PageHeader title={tool?.name ?? "Website Screenshot"} description="Capture screenshots of websites" accent="cyan" backButton={{ href: "/app" as const, label: "Back to Dashboard" }} />
+      <PageHeader title={tool?.name ?? "Website Screenshot"} description="Capture screenshots of websites" backButton={{ href: "/app" as const, label: "Back to Dashboard" }} />
       <div className="p-6">
         <Container size="md" className="max-w-2xl mx-auto">
           <Surface variant="elevated" padding="lg">
             <fieldset className="mb-6">
-              <legend className="text-lg font-semibold text-content-primary mb-4">1. Enter URL</legend>
+              <legend className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">1. Enter URL</legend>
               <input
                 type="url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://example.com"
-                className="w-full px-4 py-3 bg-surface border border-border rounded-md text-content-primary"
+                className="w-full px-4 py-3 bg-black border border-white/10 rounded-md text-white font-mono focus:outline-none focus:border-white/30"
               />
             </fieldset>
             <fieldset className="mb-6">
-              <legend className="text-lg font-semibold text-content-primary mb-4">2. Viewport Size</legend>
+              <legend className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">2. Viewport Size</legend>
               <div className="grid grid-cols-4 gap-2 mb-4">
                 {VIEWPORT_PRESETS.map((preset) => (
                   <button
                     key={preset.label}
                     onClick={() => setViewport({ width: preset.width, height: preset.height })}
-                    className={`px-3 py-2 rounded-md text-sm transition-colors-fast ${viewport.width === preset.width && viewport.height === preset.height ? "bg-accent-cyan text-background-primary" : "bg-surface border border-border text-content-secondary hover:bg-interactive-hover"}`}
+                    className={`px-3 py-2 rounded-md text-sm transition-colors ${viewport.width === preset.width && viewport.height === preset.height ? "bg-white text-black" : "bg-black border border-white/10 text-zinc-400 hover:bg-white/5"}`}
                   >
                     {preset.label}
                   </button>
@@ -71,33 +71,33 @@ function WebsiteScreenshotInner(): React.JSX.Element {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-content-secondary mb-2">Width</label>
-                  <input type="number" value={viewport.width} onChange={(e) => setViewport(prev => ({ ...prev, width: parseInt(e.target.value) || 1280 }))} className="w-full px-4 py-3 bg-surface border border-border rounded-md text-content-primary" />
+                  <label className="block text-sm text-zinc-400 mb-2">Width</label>
+                  <input type="number" value={viewport.width} onChange={(e) => setViewport(prev => ({ ...prev, width: parseInt(e.target.value) || 1280 }))} className="w-full px-4 py-3 bg-black border border-white/10 rounded-md text-white font-mono" />
                 </div>
                 <div>
-                  <label className="block text-sm text-content-secondary mb-2">Height</label>
-                  <input type="number" value={viewport.height} onChange={(e) => setViewport(prev => ({ ...prev, height: parseInt(e.target.value) || 720 }))} className="w-full px-4 py-3 bg-surface border border-border rounded-md text-content-primary" />
+                  <label className="block text-sm text-zinc-400 mb-2">Height</label>
+                  <input type="number" value={viewport.height} onChange={(e) => setViewport(prev => ({ ...prev, height: parseInt(e.target.value) || 720 }))} className="w-full px-4 py-3 bg-black border border-white/10 rounded-md text-white font-mono" />
                 </div>
               </div>
             </fieldset>
-            {error && <div className="mb-6 p-4 bg-accent-red-muted border border-accent-red rounded-md"><p className="text-accent-red text-sm">{error}</p></div>}
+            {error && <div className="mb-6 p-4 bg-zinc-900 border border-zinc-700 rounded-md"><p className="text-zinc-300 text-sm">{error}</p></div>}
             {result && (
               <fieldset className="mb-6">
-                <legend className="text-lg font-semibold text-accent-green mb-4">Page Info</legend>
-                <div className="bg-accent-green-muted border border-accent-green rounded-md p-4">
-                  <h3 className="text-lg font-medium text-content-primary mb-2">{result.screenshot.title}</h3>
-                  <p className="text-sm text-content-secondary mb-4">{result.screenshot.description}</p>
+                <legend className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">3. Result</legend>
+                <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
+                  <h3 className="text-lg font-medium text-white mb-2">{result.screenshot.title}</h3>
+                  <p className="text-sm text-zinc-400 mb-4">{result.screenshot.description}</p>
                   <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                    <div><p className="text-content-muted">URL</p><p className="text-content-primary font-mono text-xs break-all">{result.screenshot.url}</p></div>
-                    <div><p className="text-content-muted">Viewport</p><p className="text-content-primary">{result.screenshot.viewport.width}x{result.screenshot.viewport.height}</p></div>
+                    <div><p className="text-zinc-500">URL</p><p className="text-white font-mono text-xs break-all">{result.screenshot.url}</p></div>
+                    <div><p className="text-zinc-500">Viewport</p><p className="text-white font-mono">{result.screenshot.viewport.width}x{result.screenshot.viewport.height}</p></div>
                   </div>
-                  <div className="p-3 bg-background-secondary rounded text-xs text-content-muted">
+                  <div className="p-3 bg-zinc-950 rounded text-xs text-zinc-500">
                     {result.screenshot.note}
                   </div>
                 </div>
               </fieldset>
             )}
-            <button onClick={handleCapture} disabled={!url.trim() || loading} className="w-full px-6 py-3 bg-accent-cyan text-background-primary font-medium rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity">
+            <button onClick={handleCapture} disabled={!url.trim() || loading} className="w-full px-6 py-3 bg-white text-black font-medium rounded-md hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               {loading ? "Capturing..." : "Capture Screenshot"}
             </button>
           </Surface>
@@ -108,6 +108,6 @@ function WebsiteScreenshotInner(): React.JSX.Element {
 }
 
 export default function WebsiteScreenshotPage(): React.JSX.Element {
-  const tool: ToolDefinition = { id: "website-screenshot", name: "Website Screenshot", description: "Capture screenshots of websites", category: "web", accent: "cyan", layout: "form-heavy", enabled: true, route: "/web/website-screenshot" };
+  const tool: ToolDefinition = { id: "website-screenshot", name: "Website Screenshot", description: "Capture screenshots of websites", category: "web", accent: "blue", layout: "form-heavy", enabled: true, route: "/app/web/website-screenshot" };
   return <ToolProvider tool={tool}><WebsiteScreenshotInner /></ToolProvider>;
 }

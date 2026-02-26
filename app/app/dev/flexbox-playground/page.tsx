@@ -97,7 +97,6 @@ ${lines.join("\n")}
       <PageHeader
         title={tool?.name ?? "Flexbox Playground"}
         description="Interactive flexbox learning tool"
-        accent="green"
         backButton={{ href: "/app" as const, label: "Back to Dashboard" }}
       />
 
@@ -108,10 +107,10 @@ ${lines.join("\n")}
             <div className="lg:col-span-2">
               <Surface variant="elevated" padding="lg">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-content-primary">Preview</h2>
+                  <h2 className="text-lg font-semibold text-white">Preview</h2>
                   <button
                     onClick={addItem}
-                    className="px-4 py-2 bg-accent-green text-background-primary text-sm font-medium rounded hover:opacity-90 transition-opacity"
+                    className="px-4 py-2 bg-white text-black text-sm font-medium rounded hover:bg-zinc-200 transition-colors"
                   >
                     + Add Item
                   </button>
@@ -119,7 +118,7 @@ ${lines.join("\n")}
 
                 {/* Flex Container */}
                 <div
-                  className="min-h-[250px] p-4 bg-surface-muted rounded-lg border-2 border-dashed border-border"
+                  className="min-h-[250px] p-4 bg-zinc-900/50 rounded-lg border-2 border-dashed border-white/10"
                   style={{
                     display: "flex",
                     flexDirection: containerStyles.flexDirection,
@@ -133,7 +132,7 @@ ${lines.join("\n")}
                   {items.map((item, index) => (
                     <div
                       key={item.id}
-                      className={`flex items-center justify-center text-background-primary font-bold text-lg rounded-lg cursor-pointer transition-all hover:opacity-80 ${colors[index % colors.length]}`}
+                      className={`flex items-center justify-center text-white font-bold text-lg rounded-lg cursor-pointer transition-all hover:opacity-80 ${colors[index % colors.length]}`}
                       style={{
                         minWidth: "60px",
                         minHeight: "60px",
@@ -153,23 +152,23 @@ ${lines.join("\n")}
                 </div>
 
                 {/* CSS Output */}
-                <div className="mt-4 p-4 bg-surface-muted rounded-md">
+                <div className="mt-4 p-4 bg-zinc-900/50 rounded-md">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-content-muted uppercase tracking-wider">
+                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider font-mono">
                       CSS Code
                     </span>
                     <button
                       onClick={copyCss}
-                      className={`px-3 py-1 text-xs rounded transition-colors-fast ${
+                      className={`px-3 py-1 text-xs rounded transition-colors ${
                         copied
-                          ? "bg-accent-green text-background-primary"
-                          : "bg-surface border border-border text-content-secondary hover:bg-interactive-hover"
+                          ? "bg-white text-black"
+                          : "bg-black border border-white/10 text-zinc-400 hover:bg-white/5"
                       }`}
                     >
                       {copied ? "Copied!" : "Copy"}
                     </button>
                   </div>
-                  <pre className="text-xs text-content-primary font-mono overflow-x-auto whitespace-pre">
+                  <pre className="text-xs text-white font-mono overflow-x-auto whitespace-pre">
                     {generateCss()}
                   </pre>
                 </div>
@@ -180,23 +179,23 @@ ${lines.join("\n")}
             <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-200px)]">
               {/* Container Properties */}
               <Surface variant="elevated" padding="md">
-                <h3 className="text-sm font-semibold text-content-muted uppercase tracking-wider mb-4">
+                <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-4">
                   Container Properties
                 </h3>
 
                 <div className="space-y-4">
                   {/* Flex Direction */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-2 block">flex-direction</label>
+                    <label className="text-xs text-zinc-400 mb-2 block">flex-direction</label>
                     <div className="grid grid-cols-2 gap-1">
                       {(["row", "row-reverse", "column", "column-reverse"] as const).map((dir) => (
                         <button
                           key={dir}
                           onClick={() => updateContainerStyle("flexDirection", dir)}
-                          className={`px-2 py-1.5 text-xs rounded transition-colors-fast ${
+                          className={`px-2 py-1.5 text-xs rounded transition-colors ${
                             containerStyles.flexDirection === dir
-                              ? "bg-accent-green text-background-primary"
-                              : "bg-surface border border-border text-content-secondary hover:bg-interactive-hover"
+                              ? "bg-white text-black"
+                              : "bg-black border border-white/10 text-zinc-400 hover:bg-white/5"
                           }`}
                         >
                           {dir}
@@ -207,16 +206,16 @@ ${lines.join("\n")}
 
                   {/* Flex Wrap */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-2 block">flex-wrap</label>
+                    <label className="text-xs text-zinc-400 mb-2 block">flex-wrap</label>
                     <div className="grid grid-cols-2 gap-1">
                       {(["nowrap", "wrap", "wrap-reverse"] as const).map((wrap) => (
                         <button
                           key={wrap}
                           onClick={() => updateContainerStyle("flexWrap", wrap)}
-                          className={`px-2 py-1.5 text-xs rounded transition-colors-fast ${
+                          className={`px-2 py-1.5 text-xs rounded transition-colors ${
                             containerStyles.flexWrap === wrap
-                              ? "bg-accent-green text-background-primary"
-                              : "bg-surface border border-border text-content-secondary hover:bg-interactive-hover"
+                              ? "bg-white text-black"
+                              : "bg-black border border-white/10 text-zinc-400 hover:bg-white/5"
                           }`}
                         >
                           {wrap}
@@ -227,16 +226,16 @@ ${lines.join("\n")}
 
                   {/* Justify Content */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-2 block">justify-content</label>
+                    <label className="text-xs text-zinc-400 mb-2 block">justify-content</label>
                     <div className="grid grid-cols-2 gap-1">
                       {(["flex-start", "flex-end", "center", "space-between", "space-around", "space-evenly"] as const).map((jc) => (
                         <button
                           key={jc}
                           onClick={() => updateContainerStyle("justifyContent", jc)}
-                          className={`px-2 py-1.5 text-xs rounded transition-colors-fast ${
+                          className={`px-2 py-1.5 text-xs rounded transition-colors ${
                             containerStyles.justifyContent === jc
-                              ? "bg-accent-green text-background-primary"
-                              : "bg-surface border border-border text-content-secondary hover:bg-interactive-hover"
+                              ? "bg-white text-black"
+                              : "bg-black border border-white/10 text-zinc-400 hover:bg-white/5"
                           }`}
                         >
                           {jc}
@@ -247,16 +246,16 @@ ${lines.join("\n")}
 
                   {/* Align Items */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-2 block">align-items</label>
+                    <label className="text-xs text-zinc-400 mb-2 block">align-items</label>
                     <div className="grid grid-cols-2 gap-1">
                       {(["stretch", "flex-start", "flex-end", "center", "baseline"] as const).map((ai) => (
                         <button
                           key={ai}
                           onClick={() => updateContainerStyle("alignItems", ai)}
-                          className={`px-2 py-1.5 text-xs rounded transition-colors-fast ${
+                          className={`px-2 py-1.5 text-xs rounded transition-colors ${
                             containerStyles.alignItems === ai
-                              ? "bg-accent-green text-background-primary"
-                              : "bg-surface border border-border text-content-secondary hover:bg-interactive-hover"
+                              ? "bg-white text-black"
+                              : "bg-black border border-white/10 text-zinc-400 hover:bg-white/5"
                           }`}
                         >
                           {ai}
@@ -267,7 +266,7 @@ ${lines.join("\n")}
 
                   {/* Gap */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-1 block">gap: {containerStyles.gap}px</label>
+                    <label className="text-xs text-zinc-400 mb-1 block">gap: {containerStyles.gap}px</label>
                     <input
                       type="range"
                       min={0}
@@ -282,14 +281,14 @@ ${lines.join("\n")}
 
               {/* Item Properties */}
               <Surface variant="elevated" padding="md">
-                <h3 className="text-sm font-semibold text-content-muted uppercase tracking-wider mb-4">
+                <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-4">
                   Item Properties (Item 1)
                 </h3>
 
                 <div className="space-y-3">
                   {/* Flex Grow */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-1 block">flex-grow: {items[0]?.flexGrow}</label>
+                    <label className="text-xs text-zinc-400 mb-1 block">flex-grow: {items[0]?.flexGrow}</label>
                     <input
                       type="range"
                       min={0}
@@ -303,7 +302,7 @@ ${lines.join("\n")}
 
                   {/* Flex Shrink */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-1 block">flex-shrink: {items[0]?.flexShrink}</label>
+                    <label className="text-xs text-zinc-400 mb-1 block">flex-shrink: {items[0]?.flexShrink}</label>
                     <input
                       type="range"
                       min={0}
@@ -317,11 +316,11 @@ ${lines.join("\n")}
 
                   {/* Flex Basis */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-1 block">flex-basis</label>
+                    <label className="text-xs text-zinc-400 mb-1 block">flex-basis</label>
                     <select
                       value={items[0]?.flexBasis ?? "auto"}
                       onChange={(e) => items[0] && updateItem(items[0].id, { flexBasis: e.target.value })}
-                      className="w-full px-2 py-1.5 bg-surface border border-border rounded text-content-primary text-xs"
+                      className="w-full px-2 py-1.5 bg-black border border-white/10 rounded text-white text-xs"
                     >
                       <option value="auto">auto</option>
                       <option value="0">0</option>
@@ -334,11 +333,11 @@ ${lines.join("\n")}
 
                   {/* Align Self */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-1 block">align-self</label>
+                    <label className="text-xs text-zinc-400 mb-1 block">align-self</label>
                     <select
                       value={items[0]?.alignSelf ?? "auto"}
                       onChange={(e) => items[0] && updateItem(items[0].id, { alignSelf: e.target.value })}
-                      className="w-full px-2 py-1.5 bg-surface border border-border rounded text-content-primary text-xs"
+                      className="w-full px-2 py-1.5 bg-black border border-white/10 rounded text-white text-xs"
                     >
                       <option value="auto">auto</option>
                       <option value="flex-start">flex-start</option>
@@ -351,7 +350,7 @@ ${lines.join("\n")}
 
                   {/* Order */}
                   <div>
-                    <label className="text-xs text-content-secondary mb-1 block">order: {items[0]?.order}</label>
+                    <label className="text-xs text-zinc-400 mb-1 block">order: {items[0]?.order}</label>
                     <input
                       type="range"
                       min={-2}
@@ -382,10 +381,10 @@ export default function FlexboxPlaygroundPage(): React.JSX.Element {
     name: "Flexbox Playground",
     description: "Interactive flexbox learning tool",
     category: "dev",
-    accent: "green",
+    accent: "blue",
     layout: "live-playground",
     enabled: true,
-    route: "/dev/flexbox-playground",
+    route: "/app/dev/flexbox-playground",
   };
 
   return (

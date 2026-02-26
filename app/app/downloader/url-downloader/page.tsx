@@ -92,13 +92,12 @@ function UrlDownloaderInner(): React.JSX.Element {
       <PageHeader
         title={tool?.name ?? "URL Downloader"}
         description="Download media from public URLs"
-        accent="orange"
         backButton={{ href: "/app" as const, label: "Back to Dashboard" }}
       />
 
       {/* Disclaimer Banner */}
-      <div className="flex-shrink-0 px-6 py-3 bg-accent-orange-muted border-b border-accent-orange">
-        <p className="text-sm text-accent-orange text-center">
+      <div className="flex-shrink-0 px-6 py-3 bg-zinc-900/50 border-b border-zinc-700">
+        <p className="text-sm text-zinc-400 text-center">
           <strong>Important:</strong> You must have rights to download this content. Only download media you own or have permission to use.
         </p>
       </div>
@@ -106,10 +105,10 @@ function UrlDownloaderInner(): React.JSX.Element {
       {/* Split Panel */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-0 min-h-0">
         {/* Left Panel - Input */}
-        <div className="flex flex-col border-r border-border">
+        <div className="flex flex-col border-r border-white/10">
           {/* Input Label */}
-          <div className="flex-shrink-0 px-6 py-4 border-b border-border">
-            <span className="text-xs font-semibold text-content-muted uppercase tracking-wider">
+          <div className="flex-shrink-0 px-6 py-4 border-b border-white/10">
+            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider font-mono">
               URL Input
             </span>
           </div>
@@ -119,7 +118,7 @@ function UrlDownloaderInner(): React.JSX.Element {
             <div className="space-y-4">
               {/* URL Input */}
               <div>
-                <label className="block text-sm text-content-secondary mb-2">
+                <label className="block text-sm text-zinc-400 mb-2">
                   Media URL
                 </label>
                 <input
@@ -128,7 +127,7 @@ function UrlDownloaderInner(): React.JSX.Element {
                   onChange={(e) => setUrl(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && validateUrl()}
                   placeholder="https://example.com/media.mp4"
-                  className="w-full px-4 py-3 bg-surface border border-border rounded-md text-content-primary placeholder:text-content-muted focus:outline-none focus:border-accent-orange"
+                  className="w-full px-4 py-3 bg-black border border-white/10 rounded-md text-white placeholder:text-zinc-600 focus:outline-none focus:border-white/30"
                 />
               </div>
 
@@ -136,25 +135,25 @@ function UrlDownloaderInner(): React.JSX.Element {
               <button
                 onClick={validateUrl}
                 disabled={loading || !url.trim()}
-                className="w-full px-4 py-3 bg-accent-orange text-background-primary font-medium rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                className="w-full px-4 py-3 bg-white text-black font-medium rounded-md hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {loading ? "Validating..." : "Validate URL"}
               </button>
 
               {/* Error Display */}
               {error && (
-                <Surface variant="default" padding="md" className="border-accent-red">
-                  <p className="text-accent-red font-medium">{error.code}</p>
-                  <p className="text-sm text-content-secondary mt-1">{error.message}</p>
+                <Surface variant="default" padding="md" className="border-zinc-700">
+                  <p className="text-zinc-300 font-medium">{error.code}</p>
+                  <p className="text-sm text-zinc-400 mt-1">{error.message}</p>
                 </Surface>
               )}
 
               {/* Supported Formats */}
               <div className="mt-8">
-                <h3 className="text-sm font-medium text-content-primary mb-3">
+                <h3 className="text-sm font-medium text-white mb-3">
                   Supported Formats
                 </h3>
-                <div className="grid grid-cols-2 gap-2 text-xs text-content-tertiary">
+                <div className="grid grid-cols-2 gap-2 text-xs text-zinc-600 font-mono">
                   <span>Video: MP4, WebM, MOV</span>
                   <span>Audio: MP3, WAV, OGG</span>
                   <span>Image: JPG, PNG, GIF, WebP</span>
@@ -163,11 +162,11 @@ function UrlDownloaderInner(): React.JSX.Element {
               </div>
 
               {/* Limits */}
-              <div className="mt-6 p-4 bg-surface-muted rounded-md">
-                <h4 className="text-xs font-semibold text-content-muted uppercase tracking-wider mb-2">
+              <div className="mt-6 p-4 bg-zinc-900/50 rounded-md">
+                <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">
                   Limits
                 </h4>
-                <ul className="text-xs text-content-tertiary space-y-1">
+                <ul className="text-xs text-zinc-600 space-y-1">
                   <li>Maximum file size: 200MB</li>
                   <li>Request timeout: 30 seconds</li>
                   <li>Direct media URLs only</li>
@@ -178,10 +177,10 @@ function UrlDownloaderInner(): React.JSX.Element {
         </div>
 
         {/* Right Panel - Preview */}
-        <div className="flex flex-col bg-background-secondary">
+        <div className="flex flex-col bg-zinc-950">
           {/* Preview Label */}
-          <div className="flex-shrink-0 px-6 py-4 border-b border-border">
-            <span className="text-xs font-semibold text-content-muted uppercase tracking-wider">
+          <div className="flex-shrink-0 px-6 py-4 border-b border-white/10">
+            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
               Media Preview
             </span>
           </div>
@@ -198,26 +197,26 @@ function UrlDownloaderInner(): React.JSX.Element {
 
                   <div className="space-y-3 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-content-tertiary">Filename</span>
-                      <span className="text-content-primary font-mono">
+                      <span className="text-zinc-500">Filename</span>
+                      <span className="text-white font-mono">
                         {mediaInfo.filename}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-content-tertiary">Size</span>
-                      <span className="text-content-primary">
+                      <span className="text-zinc-500">Size</span>
+                      <span className="text-white">
                         {formatSize(mediaInfo.size)}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-content-tertiary">Type</span>
-                      <span className="text-content-primary font-mono text-xs">
+                      <span className="text-zinc-500">Type</span>
+                      <span className="text-white font-mono text-xs">
                         {mediaInfo.mimeType}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-content-tertiary">Status</span>
-                      <span className="text-accent-green">
+                      <span className="text-zinc-500">Status</span>
+                      <span className="text-zinc-300">
                         {mediaInfo.canDownload ? "Ready to download" : "Unavailable"}
                       </span>
                     </div>
@@ -228,7 +227,7 @@ function UrlDownloaderInner(): React.JSX.Element {
                 <button
                   onClick={handleDownload}
                   disabled={!mediaInfo.canDownload}
-                  className="w-full px-4 py-3 bg-accent-green text-background-primary font-medium rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                  className="w-full px-4 py-3 bg-white text-black font-medium rounded-md hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Download Media
                 </button>
@@ -263,10 +262,10 @@ export default function UrlDownloaderPage(): React.JSX.Element {
     name: "URL Downloader",
     description: "Download media from public URLs",
     category: "web",
-    accent: "orange",
+    accent: "blue",
     layout: "split-panel",
     enabled: true,
-    route: "/downloader/url-downloader",
+    route: "/app/downloader/url-downloader",
   };
 
   return (

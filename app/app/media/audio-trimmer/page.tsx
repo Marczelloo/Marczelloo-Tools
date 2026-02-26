@@ -3,8 +3,11 @@
 import { useState, useCallback } from "react";
 import { PageHeader, Surface, Container } from "@/components/layout";
 import { ToolProvider, useTool } from "@/lib/tool-context";
-import { MediaTimeline, FileDropZone } from "@/components/tool-ui";
 import type { ToolDefinition } from "@/lib/featureFlags";
+import { TactileDropzone } from "@/components/tool-ui/TactileDropzone";
+import { TactileFormatGrid, type FormatOption } from "@/components/tool-ui/TactileFormatGrid";
+import { TactileButton } from "@/components/tool-ui/TactileButton";
+import { MediaTimeline } from "@/components/tool-ui";
 
 function formatSize(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -19,6 +22,12 @@ function formatTime(seconds: number): string {
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
+
+const AUDIO_FORMATS: readonly FormatOption[] = [
+  { value: "mp3", label: "MP3", desc: "Universal" },
+  { value: "wav", label: "WAV", desc: "Uncompressed" },
+  { value: "aac", label: "AAC", desc: "Apple" },
+] as const;
 
 function AudioTrimmerInner(): React.JSX.Element {
   const { tool } = useTool();
@@ -64,14 +73,6 @@ function AudioTrimmerInner(): React.JSX.Element {
     }
   }, [file, startTime, endTime, outputFormat]);
 
-  const handleClear = useCallback(() => {
-    setFile(null);
-    setResult(null);
-    setError(null);
-    setStartTime(0);
-    setEndTime(0);
-  }, []);
-
   return (
     <div className="min-h-full">
       <PageHeader
@@ -84,19 +85,27 @@ function AudioTrimmerInner(): React.JSX.Element {
           <Surface variant="elevated" padding="lg">
             <fieldset className="mb-6">
               <legend className="text-lg font-semibold text-white mb-4">
-                1. Select Audio
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
+                  1
+                </span>
+                Select Audio
               </legend>
-              <FileDropZone
+              <TactileDropzone
                 onFileSelect={handleFileSelect}
-                fileType="audio"
+                accept="audio/*"
                 currentFile={file}
+                maxSizeLabel="Max 100MB"
+                fileTypesLabel="MP3, WAV, AAC, OGG, FLAC"
               />
             </fieldset>
 
             {file && (
               <fieldset className="mb-6">
                 <legend className="text-lg font-semibold text-white mb-4">
-                  2. Trim Settings
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
+                    2
+                  </span>
+                  Trim Settings
                 </legend>
                 <MediaTimeline
                   file={file}
@@ -115,32 +124,22 @@ function AudioTrimmerInner(): React.JSX.Element {
             {file && (
               <fieldset className="mb-6">
                 <legend className="text-lg font-semibold text-white mb-4">
-                  3. Output Format
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
+                    3
+                  </span>
+                  Output Format
                 </legend>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { value: "mp3", label: "MP3" },
-                    { value: "wav", label: "WAV" },
-                    { value: "aac", label: "AAC" },
-                  ].map((f) => (
-                    <button
-                      key={f.value}
-                      onClick={() => setOutputFormat(f.value)}
-                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                        outputFormat === f.value
-                          ? "bg-white text-black"
-                          : "bg-zinc-900 border border-white/10 text-zinc-400 hover:bg-white/5 hover:text-white"
-                      }`}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
+                <TactileFormatGrid
+                  options={AUDIO_FORMATS}
+                  value={outputFormat}
+                  onChange={setOutputFormat}
+                  columns={3}
+                />
               </fieldset>
             )}
 
             {error && (
-              <div className="mb-6 p-4 bg-zinc-900 border border-zinc-700 rounded-md">
+              <div className="mb-6 p-4 bg-zinc-900/50 border border-zinc-700 rounded-md">
                 <p className="text-zinc-300 text-sm">{error}</p>
               </div>
             )}
@@ -150,24 +149,24 @@ function AudioTrimmerInner(): React.JSX.Element {
                 <legend className="text-lg font-semibold text-zinc-200 mb-4">
                   Trim Complete
                 </legend>
-                <div className="bg-zinc-900 border border-zinc-700 rounded-md p-4">
+                <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
                   <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                     <div>
                       <p className="text-zinc-500">Trimmed</p>
-                      <p className="text-zinc-200">
+                      <p className="text-white font-mono">
                         {result.trim.settings.startTime} to {result.trim.settings.endTime}
                       </p>
                     </div>
                     <div>
                       <p className="text-zinc-500">Output</p>
-                      <p className="text-zinc-200">
+                      <p className="text-white font-medium font-mono">
                         {formatSize(result.trim.output.size)} • {result.trim.output.format.toUpperCase()}
                       </p>
                     </div>
                   </div>
                   <a
                     href={result.trim.output.downloadUrl}
-                    className="block w-full px-4 py-3 bg-white text-black font-medium text-center rounded-md hover:bg-zinc-200 transition-colors"
+                    className="block w-full px-6 py-3 bg-white text-black font-medium text-center rounded-md hover:bg-zinc-200 hover:-translate-y-0.5 shadow-[0_4px_20px_rgba(255,255,255,0.1)] transition-all duration-150"
                     download
                   >
                     Download Audio
@@ -176,22 +175,37 @@ function AudioTrimmerInner(): React.JSX.Element {
               </fieldset>
             )}
 
-            <div className="flex gap-3">
-              <button
-                onClick={handleTrim}
-                disabled={!file || loading || endTime <= startTime}
-                className="flex-1 px-6 py-3 bg-white text-black font-medium rounded-md hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            <div className="flex gap-4">
+              <TactileButton
+                onClick={result ? () => {
+                  setFile(null);
+                  setResult(null);
+                  setError(null);
+                  setStartTime(0);
+                  setEndTime(0);
+                } : handleTrim}
+                disabled={!file || loading || (endTime <= startTime && !result)}
+                loading={loading && !result}
+                variant={result ? "secondary" : "primary"}
+                fullWidth
               >
-                {loading ? "Trimming..." : "Trim Audio"}
-              </button>
-              {file && (
-                <button
-                  onClick={handleClear}
+                {result ? "Start Over" : loading ? "Trimming..." : "Trim Audio"}
+              </TactileButton>
+
+              {file && !result && (
+                <TactileButton
+                  variant="secondary"
+                  onClick={() => {
+                    setFile(null);
+                    setResult(null);
+                    setError(null);
+                    setStartTime(0);
+                    setEndTime(0);
+                  }}
                   disabled={loading}
-                  className="px-6 py-3 bg-zinc-900 border border-white/10 text-zinc-400 font-medium rounded-md hover:bg-white/5 hover:text-white disabled:opacity-50 transition-colors"
                 >
                   Clear
-                </button>
+                </TactileButton>
               )}
             </div>
           </Surface>
@@ -207,11 +221,12 @@ export default function AudioTrimmerPage(): React.JSX.Element {
     name: "Audio Trimmer",
     description: "Trim and cut audio files",
     category: "media",
-    accent: "purple",
-    layout: "split-panel",
+    accent: "blue",
+    layout: "upload-center",
     enabled: true,
-    route: "/media/audio-trimmer",
+    route: "/app/media/audio-trimmer",
   };
+
   return (
     <ToolProvider tool={tool}>
       <AudioTrimmerInner />
