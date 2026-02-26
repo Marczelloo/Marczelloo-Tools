@@ -78,7 +78,7 @@ function VideoConverterInner(): React.JSX.Element {
   const [result, setResult] = useState<ConversionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<ProgressData | null>(null);
-  const [_conversionId, setConversionId] = useState<string | null>(null);
+  const [, setConversionId] = useState<string | null>(null);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -222,6 +222,7 @@ function VideoConverterInner(): React.JSX.Element {
                   <MinimalProgress
                     progress={progress.progress}
                     time={progress.time}
+                    label="Video conversion progress"
                   />
                 ) : (
                   <div className="bg-zinc-900/50 border border-white/10 rounded-md p-6">
