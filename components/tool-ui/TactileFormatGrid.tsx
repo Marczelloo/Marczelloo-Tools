@@ -23,12 +23,15 @@ export function TactileFormatGrid({
   const gridCols = columns === 3 ? "grid-cols-3" : columns === 4 ? "grid-cols-4" : "grid-cols-5";
 
   return (
-    <div className={`grid ${gridCols} gap-2`}>
+    <div className={`grid ${gridCols} gap-2`} role="radiogroup" aria-label="Format selection">
       {options.map((option) => (
         <button
           key={option.value}
+          type="button"
           onClick={() => onChange(option.value)}
-          className={`px-4 py-3 rounded-md text-sm transition-all duration-150 ${
+          role="radio"
+          aria-checked={value === option.value}
+          className={`px-4 py-3 rounded-md text-sm transition-all duration-150 focus:ring-2 focus:ring-white/20 focus:outline-none focus-visible:ring-2 ${
             value === option.value
               ? "bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.15)]"
               : "bg-black border border-white/10 text-zinc-400 hover:bg-white/5 hover:border-white/20 active:scale-[0.98]"
