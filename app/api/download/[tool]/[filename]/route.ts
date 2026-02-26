@@ -32,6 +32,11 @@ const TOOL_DIRECTORIES: Record<string, string> = {
   "png-to-webp": "./tmp/processed/png-to-webp",
   "image-converter": "./tmp/processed/image-converter",
   "video-compressor": "./tmp/processed/video-compressor",
+  "video-converter": "./tmp/processed/video-converter",
+  "video-trimmer": "./tmp/processed/video-trimmer",
+  "audio-converter": "./tmp/processed/audio-converter",
+  "audio-compressor": "./tmp/processed/audio-compressor",
+  "audio-trimmer": "./tmp/processed/audio-trimmer",
   // Add more tools as needed
 };
 
@@ -99,6 +104,8 @@ export async function GET(_request: NextRequest, { params }: DownloadParams): Pr
       mp3: "audio/mpeg",
       mp4: "video/mp4",
       webm: "video/webm",
+      mov: "video/quicktime",
+      avi: "video/x-msvideo",
       wav: "audio/wav",
       ogg: "audio/ogg",
       pdf: "application/pdf",

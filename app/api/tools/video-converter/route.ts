@@ -19,6 +19,7 @@ import {
   validateInputFile,
 } from "@/lib/ffmpeg/runner";
 import { isToolEnabled } from "@/lib/featureFlags";
+import { updateProgress } from "./progress/[conversionId]/route";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import { mkdir } from "fs/promises";
@@ -56,7 +57,7 @@ const isAudioFormat = (format: string): format is AudioFormat =>
 
 const VIDEO_CODECS: Record<VideoFormat, { video: string; audio: string }> = {
   mp4: { video: "libx264", audio: "aac" },
-  webm: { video: "libvpx-vp9", audio: "libopus" },
+  webm: { video: "libvpx", audio: "libvorbis" },
   mov: { video: "libx264", audio: "aac" },
   avi: { video: "mpeg4", audio: "mp3" },
   mkv: { video: "libx264", audio: "aac" },
@@ -157,7 +158,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       await mkdir(outputDir, { recursive: true });
     }
 
-    const outputFilename = `${randomUUID()}.${format}`;
+    // Generate conversion ID for progress tracking
+    const conversionId = randomUUID();
+    const outputFilename = `${conversionId}.${format}`;
     const outputPath = join(outputDir, outputFilename);
 
     let ffmpegArgs: string[];
@@ -186,9 +189,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         "-i", uploadResult.filepath,
         "-c:v", codecs.video,
         "-c:a", codecs.audio,
-        "-movflags", "+faststart",
-        outputPath,
       ];
+
+      // Add faststart only for MP4 (MOV doesn't need it, WebM doesn't support movflags, AVI doesn't need it)
+      if (format === "mp4") {
+        ffmpegArgs.push("-movflags", "+faststart");
+      }
+
+      ffmpegArgs.push(outputPath);
     } else {
       return NextResponse.json(
         { success: false, error: { code: "INVALID_FORMAT", message: "Unsupported output format" } },
@@ -199,14 +207,44 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const result = await runFFmpeg(ffmpegArgs, {
       timeout: 5 * 60 * 1000,
       workDir: "/app",
+    }, (progress) => {
+      // Update progress via SSE
+      updateProgress(conversionId, {
+        progress: progress.percent,
+        frame: progress.frame,
+        fps: progress.fps,
+        time: progress.time,
+        bitrate: progress.bitrate,
+        speed: progress.speed,
+      });
     });
 
     if (!result.success) {
+      // Mark progress as failed
+      updateProgress(conversionId, {
+        progress: -1,
+        frame: 0,
+        fps: 0,
+        time: "00:00:00.00",
+        bitrate: "0kbits/s",
+        speed: "0x",
+      });
+
       return NextResponse.json(
         { success: false, error: { code: "CONVERSION_FAILED", message: result.timedOut ? "Conversion timed out" : result.error || "FFmpeg conversion failed" } },
         { status: 500 }
       );
     }
+
+    // Mark conversion as complete
+    updateProgress(conversionId, {
+      progress: 100,
+      frame: 0,
+      fps: 0,
+      time: "00:00:00.00",
+      bitrate: "0kbits/s",
+      speed: "1x",
+    });
 
     const { stat } = await import("fs/promises");
     let outputSize = 0;
@@ -218,6 +256,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const response: {
       success: boolean;
       conversion: {
+        id: string;
         input: { filename: string; size: number };
         output: {
           filename: string;
@@ -232,6 +271,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     } = {
       success: true,
       conversion: {
+        id: conversionId,
         input: { filename: uploadResult.originalName, size: uploadResult.size },
         output: {
           filename: outputFilename,

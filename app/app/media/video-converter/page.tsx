@@ -4,6 +4,10 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { PageHeader, Surface, Container } from "@/components/layout";
 import { ToolProvider, useTool } from "@/lib/tool-context";
 import type { ToolDefinition } from "@/lib/featureFlags";
+import { TactileDropzone } from "@/components/tool-ui/TactileDropzone";
+import { TactileFormatGrid, type FormatOption } from "@/components/tool-ui/TactileFormatGrid";
+import { TactileButton } from "@/components/tool-ui/TactileButton";
+import { MinimalProgress } from "@/components/tool-ui/MinimalProgress";
 
 // ============================================================================
 // TYPES
@@ -49,12 +53,23 @@ function formatSize(bytes: number): string {
 }
 
 // ============================================================================
+// VIDEO FORMAT OPTIONS
+// ============================================================================
+
+const VIDEO_FORMATS: readonly FormatOption[] = [
+  { value: "mp4", label: "MP4", desc: "Universal" },
+  { value: "webm", label: "WebM", desc: "Web optimized" },
+  { value: "mov", label: "MOV", desc: "Apple" },
+  { value: "avi", label: "AVI", desc: "Legacy" },
+  { value: "mkv", label: "MKV", desc: "Matroska" },
+] as const;
+
+// ============================================================================
 // VIDEO CONVERTER COMPONENT
 // ============================================================================
 
 function VideoConverterInner(): React.JSX.Element {
   const { tool } = useTool();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [file, setFile] = useState<File | null>(null);
@@ -72,22 +87,6 @@ function VideoConverterInner(): React.JSX.Element {
         clearInterval(pollIntervalRef.current);
       }
     };
-  }, []);
-
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      setError(null);
-      setResult(null);
-      setProgress(null);
-      setConversionId(null);
-      setOutputFormat("mp4");
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
-    }
   }, []);
 
   const startPolling = useCallback((id: string) => {
@@ -158,14 +157,6 @@ function VideoConverterInner(): React.JSX.Element {
     }
   }, [file, outputFormat, startPolling]);
 
-  const VIDEO_FORMATS = [
-    { value: "mp4", label: "MP4", desc: "Universal" },
-    { value: "webm", label: "WebM", desc: "Web optimized" },
-    { value: "mov", label: "MOV", desc: "Apple" },
-    { value: "avi", label: "AVI", desc: "Legacy" },
-    { value: "mkv", label: "MKV", desc: "Matroska" },
-  ];
-
   return (
     <div className="min-h-full">
       <PageHeader
@@ -180,56 +171,45 @@ function VideoConverterInner(): React.JSX.Element {
             {/* File Upload */}
             <fieldset className="mb-6">
               <legend className="text-lg font-semibold text-white mb-4">
-                1. Select Video
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
+                  1
+                </span>
+                Select Video
               </legend>
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-white/10 rounded-lg p-8 text-center cursor-pointer hover:border-white/20 transition-colors"
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="video/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-                {file ? (
-                  <div>
-                    <p className="text-white font-medium">{file.name}</p>
-                    <p className="text-sm text-zinc-500 mt-1">{formatSize(file.size)}</p>
-                  </div>
-                ) : (
-                  <div>
-                    <p className="text-zinc-300">Click to select a video file</p>
-                    <p className="text-xs text-zinc-500 mt-1">
-                      MP4, WebM, MOV, AVI, MKV • Max 200MB
-                    </p>
-                  </div>
-                )}
-              </div>
+              <TactileDropzone
+                onFileSelect={(selectedFile) => {
+                  setFile(selectedFile);
+                  setError(null);
+                  setResult(null);
+                  setProgress(null);
+                  setConversionId(null);
+                  setOutputFormat("mp4");
+                  if (pollIntervalRef.current) {
+                    clearInterval(pollIntervalRef.current);
+                    pollIntervalRef.current = null;
+                  }
+                }}
+                accept="video/*"
+                maxSize={200 * 1024 * 1024}
+                currentFile={file}
+                maxSizeLabel="Max 200MB"
+                fileTypesLabel="MP4, WebM, MOV, AVI, MKV"
+              />
             </fieldset>
 
             {/* Output Format */}
             <fieldset className="mb-6">
               <legend className="text-lg font-semibold text-white mb-4">
-                2. Output Format
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
+                  2
+                </span>
+                Output Format
               </legend>
-              <div className="grid grid-cols-3 gap-2">
-                {VIDEO_FORMATS.map((f) => (
-                  <button
-                    key={f.value}
-                    onClick={() => setOutputFormat(f.value)}
-                    className={`px-4 py-3 rounded-md text-sm transition-colors ${
-                      outputFormat === f.value
-                        ? "bg-white text-black"
-                        : "bg-zinc-900 border border-white/10 text-zinc-400 hover:bg-white/5"
-                    }`}
-                  >
-                    <span className="font-medium">{f.label}</span>
-                    <span className="block text-xs opacity-75 mt-0.5">{f.desc}</span>
-                  </button>
-                ))}
-              </div>
+              <TactileFormatGrid
+                options={VIDEO_FORMATS}
+                value={outputFormat}
+                onChange={setOutputFormat}
+              />
             </fieldset>
 
             {/* Progress Bar */}
@@ -238,37 +218,24 @@ function VideoConverterInner(): React.JSX.Element {
                 <legend className="text-lg font-semibold text-white mb-4">
                   Converting...
                 </legend>
-                <div className="bg-zinc-900 border border-white/10 rounded-md p-4">
-                  {progress ? (
-                    <>
-                      <div className="flex justify-between text-sm text-zinc-400 mb-2">
-                        <span>{progress.time}</span>
-                        <span>{Math.round(progress.progress)}%</span>
-                      </div>
-                      <div className="w-full bg-zinc-800 rounded-full h-2 mb-3">
-                        <div
-                          className="bg-white h-full rounded-full transition-all duration-300"
-                          style={{ width: `${Math.min(100, progress.progress)}%` }}
-                        />
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 text-xs text-zinc-500">
-                        <span>{progress.fps.toFixed(1)} fps</span>
-                        <span>{progress.bitrate}</span>
-                        <span>{progress.speed}x</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="w-full bg-zinc-800 rounded-full h-2 overflow-hidden">
+                {progress ? (
+                  <MinimalProgress
+                    progress={progress.progress}
+                    time={progress.time}
+                  />
+                ) : (
+                  <div className="bg-zinc-900/50 border border-white/10 rounded-md p-6">
+                    <div className="w-full bg-zinc-800 rounded-full h-1 overflow-hidden">
                       <div className="bg-white h-full rounded-full animate-pulse" style={{ width: "30%" }} />
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </fieldset>
             )}
 
             {/* Error Display */}
             {error && (
-              <div className="mb-6 p-4 bg-zinc-900 border border-zinc-700 rounded-md">
+              <div className="mb-6 p-4 bg-zinc-900/50 border border-zinc-700 rounded-md">
                 <p className="text-zinc-300 text-sm">{error}</p>
               </div>
             )}
@@ -279,7 +246,7 @@ function VideoConverterInner(): React.JSX.Element {
                 <legend className="text-lg font-semibold text-zinc-200 mb-4">
                   Conversion Complete
                 </legend>
-                <div className="bg-zinc-900 border border-zinc-700 rounded-md p-4">
+                <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
                   <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                     <div>
                       <p className="text-zinc-500">Original</p>
@@ -296,8 +263,8 @@ function VideoConverterInner(): React.JSX.Element {
                   </div>
                   <a
                     href={result.output.downloadUrl}
-                    className="block w-full px-4 py-3 bg-white text-black font-medium text-center rounded-md hover:bg-zinc-200 transition-colors"
                     download
+                    className="block w-full px-6 py-3 bg-white text-black font-medium text-center rounded-md hover:bg-zinc-200 hover:-translate-y-0.5 shadow-[0_4px_20px_rgba(255,255,255,0.1)] transition-all duration-150"
                   >
                     Download Video
                   </a>
@@ -307,15 +274,17 @@ function VideoConverterInner(): React.JSX.Element {
 
             {/* Action Buttons */}
             <div className="flex gap-3">
-              <button
+              <TactileButton
                 onClick={handleConvert}
                 disabled={!file || loading}
-                className="flex-1 px-6 py-3 bg-white text-black font-medium rounded-md hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                loading={loading}
+                fullWidth
               >
                 {loading ? "Converting..." : "Convert Video"}
-              </button>
+              </TactileButton>
               {file && (
-                <button
+                <TactileButton
+                  variant="secondary"
                   onClick={() => {
                     setFile(null);
                     setResult(null);
@@ -326,15 +295,11 @@ function VideoConverterInner(): React.JSX.Element {
                       clearInterval(pollIntervalRef.current);
                       pollIntervalRef.current = null;
                     }
-                    if (fileInputRef.current) {
-                      fileInputRef.current.value = "";
-                    }
                   }}
                   disabled={loading}
-                  className="px-6 py-3 bg-zinc-900 border border-white/10 text-zinc-400 font-medium rounded-md hover:bg-white/5 hover:text-white disabled:opacity-50 transition-colors"
                 >
                   Clear
-                </button>
+                </TactileButton>
               )}
             </div>
           </Surface>
