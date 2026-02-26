@@ -24,7 +24,7 @@ export function TactileDropzone({
   accept = "video/*",
   maxSize: _maxSize,
   currentFile,
-  maxSizeLabel,
+  maxSizeLabel = "Max 200MB",
   fileTypesLabel,
 }: TactileDropzoneProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);

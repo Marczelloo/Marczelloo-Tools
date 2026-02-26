@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { PageHeader, Surface, Container } from "@/components/layout";
 import { ToolProvider, useTool } from "@/lib/tool-context";
 import type { ToolDefinition } from "@/lib/featureFlags";
@@ -12,6 +12,7 @@ import type { ToolDefinition } from "@/lib/featureFlags";
 type ConversionType = "video";
 
 interface ConversionResult {
+  id: string;
   input: {
     filename: string;
     size: number;
@@ -25,6 +26,15 @@ interface ConversionResult {
   };
   duration: number;
   type: ConversionType;
+}
+
+interface ProgressData {
+  progress: number;
+  frame: number;
+  fps: number;
+  time: string;
+  bitrate: string;
+  speed: string;
 }
 
 // ============================================================================
@@ -45,12 +55,24 @@ function formatSize(bytes: number): string {
 function VideoConverterInner(): React.JSX.Element {
   const { tool } = useTool();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [file, setFile] = useState<File | null>(null);
   const [outputFormat, setOutputFormat] = useState("mp4");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ConversionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<ProgressData | null>(null);
+  const [_conversionId, setConversionId] = useState<string | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, []);
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -58,8 +80,41 @@ function VideoConverterInner(): React.JSX.Element {
       setFile(selectedFile);
       setError(null);
       setResult(null);
+      setProgress(null);
+      setConversionId(null);
       setOutputFormat("mp4");
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
     }
+  }, []);
+
+  const startPolling = useCallback((id: string) => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+    }
+
+    // Poll immediately and then every 300ms
+    const poll = async () => {
+      try {
+        const response = await fetch(`/api/tools/video-converter/progress/${id}`);
+        const data = await response.json();
+        if (data.success && data.progress) {
+          setProgress(data.progress);
+          if (data.progress.progress >= 100) {
+            clearInterval(pollIntervalRef.current!);
+            pollIntervalRef.current = null;
+            setLoading(false);
+          }
+        }
+      } catch {
+        // Ignore errors
+      }
+    };
+
+    poll(); // Initial poll
+    pollIntervalRef.current = setInterval(poll, 300);
   }, []);
 
   const handleConvert = useCallback(async () => {
@@ -67,6 +122,7 @@ function VideoConverterInner(): React.JSX.Element {
 
     setLoading(true);
     setError(null);
+    setProgress(null);
 
     const formData = new FormData();
     formData.append("file", file);
@@ -83,16 +139,24 @@ function VideoConverterInner(): React.JSX.Element {
 
       if (!data.success) {
         setError(data.error?.message ?? "Conversion failed");
+        setLoading(false);
         return;
       }
 
-      setResult(data.conversion);
+      const id = data.conversion?.id;
+      if (id) {
+        setConversionId(id);
+        setResult(data.conversion);
+        startPolling(id);
+      } else {
+        setResult(data.conversion);
+        setLoading(false);
+      }
     } catch {
       setError("Failed to connect to server");
-    } finally {
       setLoading(false);
     }
-  }, [file, outputFormat]);
+  }, [file, outputFormat, startPolling]);
 
   const VIDEO_FORMATS = [
     { value: "mp4", label: "MP4", desc: "Universal" },
@@ -168,6 +232,40 @@ function VideoConverterInner(): React.JSX.Element {
               </div>
             </fieldset>
 
+            {/* Progress Bar */}
+            {loading && (
+              <fieldset className="mb-6">
+                <legend className="text-lg font-semibold text-white mb-4">
+                  Converting...
+                </legend>
+                <div className="bg-zinc-900 border border-white/10 rounded-md p-4">
+                  {progress ? (
+                    <>
+                      <div className="flex justify-between text-sm text-zinc-400 mb-2">
+                        <span>{progress.time}</span>
+                        <span>{Math.round(progress.progress)}%</span>
+                      </div>
+                      <div className="w-full bg-zinc-800 rounded-full h-2 mb-3">
+                        <div
+                          className="bg-white h-full rounded-full transition-all duration-300"
+                          style={{ width: `${Math.min(100, progress.progress)}%` }}
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-xs text-zinc-500">
+                        <span>{progress.fps.toFixed(1)} fps</span>
+                        <span>{progress.bitrate}</span>
+                        <span>{progress.speed}x</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-full bg-zinc-800 rounded-full h-2 overflow-hidden">
+                      <div className="bg-white h-full rounded-full animate-pulse" style={{ width: "30%" }} />
+                    </div>
+                  )}
+                </div>
+              </fieldset>
+            )}
+
             {/* Error Display */}
             {error && (
               <div className="mb-6 p-4 bg-zinc-900 border border-zinc-700 rounded-md">
@@ -176,7 +274,7 @@ function VideoConverterInner(): React.JSX.Element {
             )}
 
             {/* Result Display */}
-            {result && (
+            {result && !loading && (
               <fieldset className="mb-6">
                 <legend className="text-lg font-semibold text-zinc-200 mb-4">
                   Conversion Complete
@@ -222,6 +320,12 @@ function VideoConverterInner(): React.JSX.Element {
                     setFile(null);
                     setResult(null);
                     setError(null);
+                    setProgress(null);
+                    setConversionId(null);
+                    if (pollIntervalRef.current) {
+                      clearInterval(pollIntervalRef.current);
+                      pollIntervalRef.current = null;
+                    }
                     if (fileInputRef.current) {
                       fileInputRef.current.value = "";
                     }
