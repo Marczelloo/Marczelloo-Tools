@@ -12,7 +12,7 @@ export interface SurfaceProps {
 
 const variantClasses: Record<NonNullable<SurfaceProps["variant"]>, string> = {
   default: "bg-zinc-950 border-white/10",
-  elevated: "bg-[radial-gradient(ellipse_at_center,_#18181B_0%,_#09090B_70%,_#000000_100%)] border-t border-x border-white/10 shadow-2xl shadow-black/50",
+  elevated: "bg-[radial-gradient(ellipse_at_center,#18181B_0%,#09090B_70%,#000000_100%)] border-t border-x border-white/10 shadow-2xl shadow-black/50",
   overlay: "bg-zinc-900/90 border-white/10",
   muted: "bg-zinc-950/50 border-white/5",
 };
