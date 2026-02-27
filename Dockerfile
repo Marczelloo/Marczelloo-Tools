@@ -3,8 +3,8 @@
 # ============================================
 FROM node:20-alpine AS deps
 
-# Install FFmpeg and system dependencies (including vips for sharp)
-RUN apk add --no-cache ffmpeg ffmpeg-libs vips
+# Install FFmpeg, yt-dlp, and system dependencies (including vips for sharp)
+RUN apk add --no-cache ffmpeg ffmpeg-libs yt-dlp vips
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
@@ -22,8 +22,8 @@ RUN pnpm install --frozen-lockfile --prod=false
 # ============================================
 FROM node:20-alpine AS builder
 
-# Install FFmpeg and system dependencies (including vips for sharp)
-RUN apk add --no-cache ffmpeg ffmpeg-libs vips-dev
+# Install FFmpeg, yt-dlp, and system dependencies (including vips for sharp)
+RUN apk add --no-cache ffmpeg ffmpeg-libs yt-dlp vips-dev
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
@@ -45,8 +45,8 @@ RUN pnpm build
 # ============================================
 FROM node:20-alpine AS runner
 
-# Install FFmpeg and system dependencies (including vips for sharp)
-RUN apk add --no-cache ffmpeg ffmpeg-libs vips
+# Install FFmpeg, yt-dlp, and system dependencies (including vips for sharp)
+RUN apk add --no-cache ffmpeg ffmpeg-libs yt-dlp vips
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
