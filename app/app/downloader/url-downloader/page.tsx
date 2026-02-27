@@ -4,21 +4,27 @@ import { useState, useCallback, useRef } from "react";
 import { PageHeader } from "@/components/layout";
 import { ToolProvider, useTool } from "@/lib/tool-context";
 import type { ToolDefinition } from "@/lib/featureFlags";
-import { Film } from "lucide-react";
+import { Film, Video, Music } from "lucide-react";
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
+type MediaType = "video+audio" | "audio-only" | "video-only";
+
 interface Format {
   id: string;
   ext: string;
   quality: string;
-  filesize: number | null;
-  hasVideo: boolean;
-  hasAudio: boolean;
-  vcodec: string;
-  acodec: string;
+  filesize?: number;
+  vcodec?: string;
+  acodec?: string;
+}
+
+interface FormatsResponse {
+  videoAndAudio?: Format[];
+  audioOnly?: Format[];
+  videoOnly?: Format[];
 }
 
 interface MediaInfo {
@@ -98,7 +104,8 @@ function UrlDownloaderInner(): React.JSX.Element {
   const { tool } = useTool();
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
-  const [formats, setFormats] = useState<Format[] | null>(null);
+  const [formats, setFormats] = useState<FormatsResponse | null>(null);
+  const [selectedMediaType, setSelectedMediaType] = useState<MediaType>("video+audio");
   const [selectedFormat, setSelectedFormat] = useState<string | null>(null);
   const [convertToMp3, setConvertToMp3] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -128,6 +135,7 @@ function UrlDownloaderInner(): React.JSX.Element {
     setSelectedFormat(null);
     setMediaInfo(null);
     setThumbnailError(false);
+    setSelectedMediaType("video+audio");
 
     try {
       const response = await fetch("/api/tools/url-downloader/check", {
@@ -154,7 +162,7 @@ function UrlDownloaderInner(): React.JSX.Element {
           canConvertToMp3: data.direct.canConvertToMp3 ?? false,
         });
       } else if (data.type === "formats") {
-        setFormats(data.formats.formats);
+        setFormats(data.formats);
         setMediaInfo({
           url,
           filename: data.formats.title ?? "video",
@@ -273,13 +281,13 @@ function UrlDownloaderInner(): React.JSX.Element {
     }
   }, [url, selectedFormat, convertToMp3, downloading]);
 
+  const currentFormats = formats ? (formats[selectedMediaType] || []) : [];
+  const selectedFormatObj = currentFormats.find(f => f.id === selectedFormat);
+  const hasVideo = selectedMediaType === "video+audio" || selectedMediaType === "video-only";
+
   const canShowMp3Toggle =
     mediaInfo?.canConvertToMp3 ||
-    (formats && selectedFormat && formats.find(f => f.id === selectedFormat)?.hasVideo);
-
-  const selectedFormatObj = formats && selectedFormat
-    ? formats.find(f => f.id === selectedFormat)
-    : null;
+    (formats && selectedMediaType === "video+audio" && selectedFormat);
 
   const fallbackThumbnail = mediaInfo?.url ? getYouTubeThumbnail(mediaInfo.url) : undefined;
 
@@ -320,12 +328,65 @@ function UrlDownloaderInner(): React.JSX.Element {
               {loading ? "Checking..." : "Check URL"}
             </button>
 
-            {/* Format Selector */}
+            {/* Media Type Selection */}
             {formats && (
+              <div className="mt-4">
+                <p className="text-xs text-zinc-500 mb-2">What to download:</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => { setSelectedMediaType("video+audio"); setSelectedFormat(null); }}
+                    className={`px-3 py-2 rounded-md text-left transition-colors ${
+                      selectedMediaType === "video+audio"
+                        ? "bg-white text-black"
+                        : "bg-black border border-white/10 text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center gap-1">
+                      <Video className="w-4 h-4" />
+                      <span className="text-xs font-medium">Video + Audio</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => { setSelectedMediaType("audio-only"); setSelectedFormat(null); }}
+                    className={`px-3 py-2 rounded-md text-left transition-colors ${
+                      selectedMediaType === "audio-only"
+                        ? "bg-white text-black"
+                        : "bg-black border border-white/10 text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center gap-1">
+                      <Music className="w-4 h-4" />
+                      <span className="text-xs font-medium">Audio Only</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => { setSelectedMediaType("video-only"); setSelectedFormat(null); }}
+                    className={`px-3 py-2 rounded-md text-left transition-colors ${
+                      selectedMediaType === "video-only"
+                        ? "bg-white text-black"
+                        : "bg-black border border-white/10 text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <div className="flex flex flex-col items-center gap-1">
+                      <Film className="w-4 h-4" />
+                      <span className="text-xs font-medium">Video Only</span>
+                    </div>
+                  </button>
+                </div>
+                {currentFormats.length === 0 && (
+                  <p className="text-xs text-zinc-600 mt-2">No formats available for this type</p>
+                )}
+              </div>
+            )}
+
+            {/* Format Selector */}
+            {formats && currentFormats.length > 0 && (
               <div className="mt-4">
                 <p className="text-xs text-zinc-500 mb-2">Select quality:</p>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {formats.map((fmt) => (
+                  {currentFormats.map((fmt) => (
                     <button
                       key={fmt.id}
                       onClick={() => setSelectedFormat(fmt.id)}
@@ -342,9 +403,6 @@ function UrlDownloaderInner(): React.JSX.Element {
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-zinc-600 mt-2">
-                  All formats include video + audio
-                </p>
               </div>
             )}
 
@@ -441,7 +499,6 @@ function UrlDownloaderInner(): React.JSX.Element {
                     {downloading ? "Downloading..." : "Download File"}
                   </button>
 
-                  {/* Progress Bar */}
                   {downloading && (
                     <div className="mt-4 pt-4 border-t border-white/10">
                       <ProgressBar progress={downloadProgress} message={downloadMessage} />
@@ -496,6 +553,14 @@ function UrlDownloaderInner(): React.JSX.Element {
                     </p>
                   )}
 
+                  <div className="mb-3">
+                    <span className="px-2 py-1 bg-zinc-950 rounded text-xs text-zinc-500 font-mono">
+                      {selectedMediaType === "video+audio" && "Video + Audio"}
+                      {selectedMediaType === "audio-only" && "Audio Only"}
+                      {selectedMediaType === "video-only" && "Video Only (No Audio)"}
+                    </span>
+                  </div>
+
                   <button
                     onClick={handleDownload}
                     disabled={!selectedFormat || downloading}
@@ -504,7 +569,6 @@ function UrlDownloaderInner(): React.JSX.Element {
                     {downloading ? "Downloading..." : "Download"}
                   </button>
 
-                  {/* Progress Bar */}
                   {downloading && (
                     <div className="mt-4 pt-4 border-t border-white/10">
                       <ProgressBar progress={downloadProgress} message={downloadMessage} />

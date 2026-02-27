@@ -122,36 +122,55 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Filter and sort formats
-    // Prioritize: formats with BOTH video AND audio, then audio-only
-    const formats = ytdlpResult.info.formats
-      .filter(f => {
-        // Only allow mp4, webm, m4a, mp3
-        if (!["mp4", "webm", "m4a", "mp3"].includes(f.ext)) return false;
+    // Organize formats by type
+    const formats = ytdlpResult.info.formats;
+    const videoAndAudio = formats.filter(f => f.has_video && f.has_audio && ["mp4", "webm", "m4a"].includes(f.ext));
+    const audioOnly = formats.filter(f => !f.has_video && f.has_audio && ["mp3", "m4a", "webm"].includes(f.ext));
+    const videoOnly = formats.filter(f => f.has_video && !f.has_audio && ["mp4", "webm"].includes(f.ext));
 
-        // For video: require both video AND audio (no silent videos)
-        // For audio: require audio only
-        if (f.has_video) {
-          return f.has_audio;  // Video formats MUST have audio
-        }
-        return f.has_audio;  // Audio-only formats
-      })
-      .map(f => ({
-        id: f.format_id,
-        ext: f.ext,
-        quality: f.height ? `${f.height}p` : (f.abr ? `${Math.round(f.abr)}k` : "unknown"),
-        filesize: f.filesize,
-        hasVideo: f.has_video,
-        hasAudio: f.has_audio,
-        vcodec: f.vcodec,
-        acodec: f.acodec,
-      }))
-      .sort((a, b) => {
-        // Sort by quality (higher resolution first)
-        const aRes = parseInt(a.quality) || 0;
-        const bRes = parseInt(b.quality) || 0;
-        return bRes - aRes;
-      });
+    return NextResponse.json({
+      success: true,
+      type: "formats",
+      formats: {
+        title: ytdlpResult.info.title,
+        thumbnail: ytdlpResult.info.thumbnail,
+        duration: ytdlpResult.info.duration,
+        videoAndAudio: videoAndAudio.map(f => ({
+          id: f.format_id,
+          ext: f.ext,
+          quality: f.height ? `${f.height}p` : (f.abr ? `${Math.round(f.abr)}k` : "unknown"),
+          filesize: f.filesize,
+          vcodec: f.vcodec,
+          acodec: f.acodec,
+        })).sort((a, b) => {
+          const aRes = parseInt(a.quality) || 0;
+          const bRes = parseInt(b.quality) || 0;
+          return bRes - aRes;
+        }),
+        audioOnly: audioOnly.map(f => ({
+          id: f.format_id,
+          ext: f.ext,
+          quality: f.abr ? `${Math.round(f.abr)}k` : f.format_note || "unknown",
+          filesize: f.filesize,
+          acodec: f.acodec,
+        })).sort((a, b) => {
+          const aRes = parseInt(a.quality) || 0;
+          const bRes = parseInt(b.quality) || 0;
+          return bRes - aRes;
+        }),
+        videoOnly: videoOnly.map(f => ({
+          id: f.format_id,
+          ext: f.ext,
+          quality: f.height ? `${f.height}p` : "unknown",
+          filesize: f.filesize,
+          vcodec: f.vcodec,
+        })).sort((a, b) => {
+          const aRes = parseInt(a.quality) || 0;
+          const bRes = parseInt(b.quality) || 0;
+          return bRes - aRes;
+        }),
+      },
+    });
 
     return NextResponse.json({
       success: true,
