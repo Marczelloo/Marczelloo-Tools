@@ -12,7 +12,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { isToolEnabled } from "@/lib/featureFlags";
 import { detectUrlType } from "@/lib/security/url-validator";
 import { streamYtdlp, getYtdlpFormats } from "@/lib/yt-dlp/runner";
-import { runFFmpeg, buildFFmpegArgs } from "@/lib/ffmpeg/runner";
+import { runFFmpeg } from "@/lib/ffmpeg/runner";
 
 const TOOL_ID = "url-downloader";
 

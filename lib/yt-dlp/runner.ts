@@ -5,7 +5,7 @@
  */
 
 import { spawn } from "child_process";
-import { type YtdlpInfo, type YtdlpFormat, type YtdlpResult, type StreamOptions } from "./types";
+import { type YtdlpInfo, type YtdlpResult, type StreamOptions } from "./types";
 
 const YTDLP_PATH = process.env.YTDLP_PATH || "yt-dlp";
 const TIMEOUT = 5 * 60 * 1000; // 5 minutes
@@ -103,8 +103,8 @@ export function streamYtdlp(options: StreamOptions): ReadableStream<Uint8Array> 
         // Parse progress: [download] 23.4MB of 45.6MB
         const match = data.toString().match(/\[download\]\s+(\d+\.?\d*)% of/);
         if (match && options.onProgress) {
-          const percent = parseFloat(match[1]);
-          // Could emit progress event here
+          // TODO: emit progress event
+          void parseFloat(match[1]);
         }
       });
 
