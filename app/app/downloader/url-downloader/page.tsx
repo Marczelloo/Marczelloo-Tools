@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { PageHeader } from "@/components/layout";
 import { ToolProvider, useTool } from "@/lib/tool-context";
 import type { ToolDefinition } from "@/lib/featureFlags";
@@ -51,6 +51,32 @@ function formatDuration(seconds: number): string {
 }
 
 // ============================================================================
+// PROGRESS BAR COMPONENT
+// ============================================================================
+
+interface ProgressBarProps {
+  progress: number;
+  message?: string;
+}
+
+function ProgressBar({ progress, message }: ProgressBarProps) {
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between text-xs text-zinc-500">
+        <span>{message || "Downloading..."}</span>
+        <span className="font-mono">{Math.round(progress)}%</span>
+      </div>
+      <div className="h-2 bg-black rounded-full overflow-hidden">
+        <div
+          className="h-full bg-white transition-all duration-300 ease-out"
+          style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // URL DOWNLOADER COMPONENT
 // ============================================================================
 
@@ -62,8 +88,11 @@ function UrlDownloaderInner(): React.JSX.Element {
   const [selectedFormat, setSelectedFormat] = useState<string | null>(null);
   const [convertToMp3, setConvertToMp3] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloadMessage, setDownloadMessage] = useState("Starting download...");
   const [mediaInfo, setMediaInfo] = useState<MediaInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleFetchInfo = useCallback(async () => {
     if (!url.trim()) {
@@ -133,7 +162,12 @@ function UrlDownloaderInner(): React.JSX.Element {
     if (!url.trim() || downloading) return;
 
     setDownloading(true);
+    setDownloadProgress(0);
+    setDownloadMessage("Starting download...");
     setError(null);
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     try {
       const response = await fetch("/api/tools/url-downloader/download", {
@@ -144,6 +178,7 @@ function UrlDownloaderInner(): React.JSX.Element {
           formatId: selectedFormat,
           convertToMp3,
         }),
+        signal: abortController.signal,
       });
 
       if (!response.ok) {
@@ -152,13 +187,45 @@ function UrlDownloaderInner(): React.JSX.Element {
         return;
       }
 
-      // Get filename from header
+      setDownloadMessage("Receiving file...");
+
       const contentDisposition = response.headers.get("content-disposition");
       const filenameMatch = contentDisposition?.match(/filename="?(.+)"?/);
       const filename = filenameMatch?.[1] || "download";
 
-      // Download blob
-      const blob = await response.blob();
+      const contentLength = response.headers.get("content-length");
+      const total = contentLength ? parseInt(contentLength, 10) : 0;
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        setError("Failed to read response");
+        return;
+      }
+
+      const chunks: Uint8Array[] = [];
+      let receivedLength = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        chunks.push(value);
+        receivedLength += value.length;
+
+        if (total > 0) {
+          const percent = (receivedLength / total) * 100;
+          setDownloadProgress(percent);
+
+          if (percent < 20) setDownloadMessage("Downloading...");
+          else if (percent < 50) setDownloadMessage("Halfway there...");
+          else if (percent < 80) setDownloadMessage("Almost done...");
+          else setDownloadMessage("Finalizing...");
+        } else {
+          setDownloadMessage("Downloading...");
+        }
+      }
+
+      const blob = new Blob(chunks);
       const blobUrl = URL.createObjectURL(blob);
 
       const a = document.createElement("a");
@@ -169,16 +236,31 @@ function UrlDownloaderInner(): React.JSX.Element {
       document.body.removeChild(a);
       URL.revokeObjectURL(blobUrl);
 
-    } catch {
-      setError("Download failed");
+      setDownloadProgress(100);
+      setDownloadMessage("Download complete!");
+
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        setError("Download cancelled");
+      } else {
+        setError("Download failed");
+      }
     } finally {
       setDownloading(false);
+      abortControllerRef.current = null;
+      setTimeout(() => {
+        setDownloadProgress(0);
+      }, 2000);
     }
   }, [url, selectedFormat, convertToMp3, downloading]);
 
   const canShowMp3Toggle =
     mediaInfo?.canConvertToMp3 ||
     (formats && selectedFormat && formats.find(f => f.id === selectedFormat)?.hasVideo);
+
+  const selectedFormatObj = formats && selectedFormat
+    ? formats.find(f => f.id === selectedFormat)
+    : null;
 
   return (
     <div className="h-[calc(100vh-73px)] flex flex-col">
@@ -299,6 +381,13 @@ function UrlDownloaderInner(): React.JSX.Element {
               </div>
             )}
 
+            {/* Download Progress */}
+            {downloading && (
+              <div className="mb-4 p-4 bg-zinc-900/50 border border-white/10 rounded-md">
+                <ProgressBar progress={downloadProgress} message={downloadMessage} />
+              </div>
+            )}
+
             {/* Media Info - Direct */}
             {mediaInfo && !formats && (
               <div className="space-y-4">
@@ -356,16 +445,28 @@ function UrlDownloaderInner(): React.JSX.Element {
               <div className="space-y-4">
                 <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
                   {mediaInfo.thumbnail && (
-                    <img
-                      src={mediaInfo.thumbnail}
-                      alt={mediaInfo.title}
-                      className="w-full rounded-md mb-4"
-                    />
+                    <div className="mb-4 rounded-md overflow-hidden bg-black aspect-video flex items-center justify-center">
+                      <img
+                        src={mediaInfo.thumbnail}
+                        alt={mediaInfo.title}
+                        className="w-full h-full object-contain"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    </div>
                   )}
 
                   <p className="text-white font-medium mb-1">
                     {mediaInfo.title}
                   </p>
+
+                  {selectedFormatObj && (
+                    <p className="text-zinc-500 text-xs mb-2 font-mono">
+                      Selected: {selectedFormatObj.quality} .{selectedFormatObj.ext.toUpperCase()}
+                    </p>
+                  )}
 
                   {mediaInfo.duration && (
                     <p className="text-zinc-500 text-xs mb-3 font-mono">
