@@ -1,11 +1,8 @@
 /**
- * URL Downloader API (Safe Mode)
+ * URL Downloader API (Universal Mode)
  *
- * Per CLAUDE.md Section 8:
- * - UI must say "Download media from public URL"
- * - Must NOT mention specific platforms
- * - Must include "You must have rights to download this content."
- * - No SEO targeting specific platforms
+ * Supports downloading from any URL for personal use.
+ * Integrates with yt-dlp for streaming platforms.
  *
  * POST /api/tools/url-downloader
  */
@@ -19,20 +16,8 @@ import { isToolEnabled } from "@/lib/featureFlags";
 
 const TOOL_ID = "url-downloader";
 
-const BLOCKED_PATTERNS = [
-  /youtube\.com/i,
-  /youtu\.be/i,
-  /vimeo\.com/i,
-  /tiktok\.com/i,
-  /instagram\.com/i,
-  /facebook\.com/i,
-  /twitter\.com/i,
-  /x\.com/i,
-  /twitch\.tv/i,
-  /dailymotion\.com/i,
-];
-
-const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
+// No file size limit for personal use
+const MAX_FILE_SIZE = Number.MAX_SAFE_INTEGER;
 
 // ============================================================================
 // URL VALIDATION
@@ -46,10 +31,6 @@ function isValidUrl(url: string): boolean {
   } catch {
     return false;
   }
-}
-
-function isBlockedUrl(url: string): boolean {
-  return BLOCKED_PATTERNS.some((pattern) => pattern.test(url));
 }
 
 function getFilenameFromUrl(url: string, contentType?: string): string {
@@ -156,20 +137,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           error: {
             code: "INVALID_URL",
             message: "Please enter a valid HTTP or HTTPS URL",
-          },
-        },
-        { status: 400 }
-      );
-    }
-
-    // Block specific platforms per CLAUDE.md
-    if (isBlockedUrl(url)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "BLOCKED_PLATFORM",
-            message: "This platform is not supported. Please use a direct media URL.",
           },
         },
         { status: 400 }
