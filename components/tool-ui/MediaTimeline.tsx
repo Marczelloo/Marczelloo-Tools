@@ -562,8 +562,15 @@ export function MediaTimeline({
       </div>
 
       {/* Combined controls row */}
-      <div className="flex items-center justify-center gap-4">
-        {/* Playback controls */}
+      <div className="flex items-center justify-between gap-4">
+        {/* Current time display - LEFT */}
+        <div className="flex items-baseline gap-1 min-w-[100px]">
+          <span className="text-sm font-mono text-white">{formatTime(currentTime)}</span>
+          <span className="text-zinc-600">/</span>
+          <span className="text-sm font-mono text-zinc-500">{formatTime(endTime)}</span>
+        </div>
+
+        {/* Playback controls - CENTER */}
         <div className="flex items-center gap-2">
           <button
             onClick={skipToStart}
@@ -593,21 +600,8 @@ export function MediaTimeline({
           </button>
         </div>
 
-        {/* Divider */}
-        <div className="w-px h-6 bg-white/10" />
-
-        {/* Current time display */}
-        <div className="flex items-baseline gap-1 min-w-[100px]">
-          <span className="text-sm font-mono text-white">{formatTime(currentTime)}</span>
-          <span className="text-zinc-600">/</span>
-          <span className="text-sm font-mono text-zinc-500">{formatTime(endTime)}</span>
-        </div>
-
-        {/* Divider */}
-        <div className="w-px h-6 bg-white/10" />
-
-        {/* Volume control */}
-        <div className="flex items-center gap-2">
+        {/* Volume control - RIGHT */}
+        <div className="flex items-center gap-2 min-w-[120px] justify-end">
           <button
             onClick={toggleMute}
             className="w-7 h-7 flex items-center justify-center rounded-md bg-zinc-900 border border-white/10 hover:bg-white/5 transition-colors"
