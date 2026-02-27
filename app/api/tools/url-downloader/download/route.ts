@@ -11,8 +11,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { isToolEnabled } from "@/lib/featureFlags";
 import { detectUrlType } from "@/lib/security/url-validator";
-import { streamYtdlp, getYtdlpFormats } from "@/lib/yt-dlp/runner";
+import { getYtdlpFormats } from "@/lib/yt-dlp/runner";
 import { runFFmpeg } from "@/lib/ffmpeg/runner";
+import { spawn } from "child_process";
 
 const TOOL_ID = "url-downloader";
 
@@ -170,18 +171,29 @@ async function handleDirectDownload(url: string, convertToMp3?: boolean): Promis
 }
 
 async function handleYtdlpDownload(url: string, formatId: string): Promise<NextResponse> {
-  // Get filename and extension from yt-dlp info
+  const { unlink, mkdir } = await import("fs/promises");
+  const { join } = await import("path");
+
+  // Create temp directory
+  const tmpDir = "./tmp/ytdlp";
+  await mkdir(tmpDir, { recursive: true });
+
+  // Get filename from yt-dlp info
   const infoResult = await getYtdlpFormats(url);
 
-  let filename = "video.mp4";
+  let baseFilename = "video";
   let ext = "mp4";
   let contentType = "video/mp4";
 
   if (infoResult.success && infoResult.info) {
-    // Sanitize title - replace invalid chars and strip trailing chars
-    let sanitizedTitle = infoResult.info.title.replace(/[^a-zA-Z0-9._-]/g, "_");
-    sanitizedTitle = sanitizedTitle.replace(/^_+|_+$/g, ""); // Strip leading/trailing underscores
-    if (!sanitizedTitle) sanitizedTitle = "video";
+    // Sanitize title - be very aggressive to avoid any trailing weird chars
+    baseFilename = infoResult.info.title
+      .trim()                                // Remove leading/trailing whitespace
+      .replace(/[^\p{L}\p{N}\s-]/gu, "")     // Remove everything except letters, numbers, spaces, hyphens
+      .replace(/\s+/g, "_")                  // Replace spaces with underscores
+      .replace(/-+/g, "_")                   // Replace hyphens with underscores
+      .replace(/^_+|_+$/g, "");              // Strip leading/trailing underscores
+    if (!baseFilename) baseFilename = "video";
 
     // Find the selected format to get the correct extension
     const selectedFormat = infoResult.info.formats.find(f => f.format_id === formatId);
@@ -189,29 +201,47 @@ async function handleYtdlpDownload(url: string, formatId: string): Promise<NextR
       ext = selectedFormat.ext;
       contentType = selectedFormat.has_video ? `video/${ext}` : `audio/${ext}`;
     }
-
-    filename = `${sanitizedTitle}.${ext}`;
   }
 
-  const stream = streamYtdlp({ url, formatId });
+  const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+  const outputPath = join(tmpDir, `${uniqueId}.${ext}`);
+  const finalFilename = `${baseFilename}.${ext}`;
 
-  // Convert stream to buffer
-  const reader = stream.getReader();
-  const chunks: Uint8Array[] = [];
+  // Download using yt-dlp to temp file
+  // For video-only formats, we need to explicitly tell yt-dlp to also download best audio
+  // The format selector "formatId+bestaudio" tells yt-dlp to download both and merge them
+  const formatSelector = formatId.includes("+") ? formatId : `${formatId}+bestaudio`;
 
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-  }
+  const ytdlpProc = spawn("yt-dlp", [
+    "-f", formatSelector,
+    "-o", outputPath,
+    "--no-playlist",
+    "--merge-output-format", "mp4",
+    "--embed-metadata",
+    url,
+  ], { shell: false });
 
-  const buffer = Buffer.concat(chunks.map(c => Buffer.from(c)));
+  // Wait for process to complete
+  await new Promise<void>((resolve, reject) => {
+    ytdlpProc.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`yt-dlp exited with code ${code}`));
+    });
+    ytdlpProc.on("error", reject);
+  });
 
-  return new NextResponse(buffer, {
+  // Read the downloaded file
+  const { readFile } = await import("fs/promises");
+  const fileBuffer = await readFile(outputPath);
+
+  // Schedule cleanup
+  setTimeout(() => unlink(outputPath).catch(() => {}), 5000);
+
+  return new NextResponse(fileBuffer, {
     headers: {
       "Content-Type": contentType,
-      "Content-Disposition": `attachment; filename="${filename}"`,
-      "Content-Length": buffer.length.toString(),
+      "Content-Disposition": `attachment; filename="${finalFilename}"; filename*=UTF-8''${encodeURIComponent(finalFilename)}`,
+      "Content-Length": fileBuffer.length.toString(),
     },
   });
 }

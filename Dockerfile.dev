@@ -18,7 +18,7 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 # Create tmp directories for file uploads and FFmpeg working
-RUN mkdir -p /app/tmp/uploads /app/tmp/processed /app/tmp/ffmpeg
+RUN mkdir -p /app/tmp/uploads /app/tmp/processed /app/tmp/ffmpeg /app/tmp/ytdlp
 
 # Set environment
 ENV NODE_ENV=development

@@ -65,7 +65,7 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
 # Create tmp directories for file uploads and FFmpeg working
-RUN mkdir -p /app/tmp/uploads /app/tmp/processed /app/tmp/ffmpeg && chown -R nextjs:nodejs /app/tmp
+RUN mkdir -p /app/tmp/uploads /app/tmp/processed /app/tmp/ffmpeg /app/tmp/ytdlp && chown -R nextjs:nodejs /app/tmp
 
 # Switch to non-root user
 USER nextjs

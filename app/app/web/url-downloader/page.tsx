@@ -252,7 +252,7 @@ function UrlDownloaderInner(): React.JSX.Element {
         }
       }
 
-      const blob = new Blob(chunks);
+      const blob = new Blob(chunks as BlobPart[]);
       const blobUrl = URL.createObjectURL(blob);
 
       const a = document.createElement("a");
@@ -282,13 +282,14 @@ function UrlDownloaderInner(): React.JSX.Element {
   }, [url, selectedFormat, convertToMp3, downloading]);
 
   // Get current format list based on selected media type
-  const currentFormats = formats ? (formats[selectedMediaType] || []) : [];
+  const currentFormats = formats ? (
+    selectedMediaType === "video+audio" ? (formats.videoAndAudio || []) :
+    selectedMediaType === "audio-only" ? (formats.audioOnly || []) :
+    (formats.videoOnly || [])
+  ) : [];
 
   // Get selected format object
-  const selectedFormatObj = currentFormats.find(f => f.id === selectedFormat);
-
-  // Check if current media type has video
-  const hasVideo = selectedMediaType === "video+audio" || selectedMediaType === "video-only";
+  const selectedFormatObj = currentFormats.find((f: typeof currentFormats[0]) => f.id === selectedFormat);
 
   const canShowMp3Toggle =
     mediaInfo?.canConvertToMp3 ||
@@ -391,7 +392,7 @@ function UrlDownloaderInner(): React.JSX.Element {
               <div className="mt-4">
                 <p className="text-xs text-zinc-500 mb-2">Select quality:</p>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {currentFormats.map((fmt) => (
+                  {currentFormats.map((fmt: typeof currentFormats[0]) => (
                     <button
                       key={fmt.id}
                       onClick={() => setSelectedFormat(fmt.id)}

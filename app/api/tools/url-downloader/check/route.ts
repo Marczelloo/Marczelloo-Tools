@@ -122,11 +122,38 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    // Helper functions to detect video/audio presence more reliably
+    const hasVideo = (f: typeof formats[0]) => f.has_video || (f.vcodec && f.vcodec !== "none");
+    const hasAudio = (f: typeof formats[0]) => f.has_audio || (f.acodec && f.acodec !== "none");
+    const supportedVideoExt = ["mp4", "webm", "mkv", "mov"];
+    const supportedAudioExt = ["mp3", "m4a", "webm", "opus", "aac"];
+
     // Organize formats by type
+    // NOTE: For platforms like Twitter/X, video+audio are often separate streams.
+    // We include video-only formats in "video+audio" since yt-dlp will merge audio during download.
     const formats = ytdlpResult.info.formats;
-    const videoAndAudio = formats.filter(f => f.has_video && f.has_audio && ["mp4", "webm", "m4a"].includes(f.ext));
-    const audioOnly = formats.filter(f => !f.has_video && f.has_audio && ["mp3", "m4a", "webm"].includes(f.ext));
-    const videoOnly = formats.filter(f => f.has_video && !f.has_audio && ["mp4", "webm"].includes(f.ext));
+
+    // Video + Audio: Include actual combined formats AND video-only formats (yt-dlp will add audio)
+    const videoAndAudio = formats.filter(f =>
+      supportedVideoExt.includes(f.ext) &&
+      hasVideo(f) &&
+      f.height // Has resolution = is a video format
+    );
+
+    // Audio Only: Pure audio formats only
+    const audioOnly = formats.filter(f =>
+      supportedAudioExt.includes(f.ext) &&
+      !hasVideo(f) &&
+      hasAudio(f)
+    );
+
+    // Video Only (No Audio): For users who explicitly want video without audio
+    const videoOnly = formats.filter(f =>
+      supportedVideoExt.includes(f.ext) &&
+      hasVideo(f) &&
+      !hasAudio(f) &&
+      !f.height // Only show weird edge cases here (video without resolution info)
+    );
 
     return NextResponse.json({
       success: true,
@@ -169,17 +196,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           const bRes = parseInt(b.quality) || 0;
           return bRes - aRes;
         }),
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      type: "formats",
-      formats: {
-        title: ytdlpResult.info.title,
-        thumbnail: ytdlpResult.info.thumbnail,
-        duration: ytdlpResult.info.duration,
-        formats,
       },
     });
 

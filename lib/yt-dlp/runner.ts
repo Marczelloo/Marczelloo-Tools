@@ -82,12 +82,23 @@ export async function getYtdlpFormats(url: string): Promise<YtdlpResult> {
 
 export function streamYtdlp(options: StreamOptions): ReadableStream<Uint8Array> {
   const { url, formatId } = options;
+
+  // For YouTube and similar sites, many formats are video-only or audio-only.
+  // We need to use format selector syntax to combine them if needed.
+  // The formatId from our API is the video format; we append +bestaudio for merging.
+  // Also use --merge-output-format to ensure proper container format.
+  const formatSelector = formatId.includes("+")
+    ? formatId
+    : `${formatId}+bestaudio`;
+
   const proc = spawn(YTDLP_PATH, [
     "-f",
-    formatId,
+    formatSelector,
     "-o",
     "-",
     "--no-playlist",
+    "--merge-output-format",
+    "mp4",
     url,
   ], {
     shell: false,

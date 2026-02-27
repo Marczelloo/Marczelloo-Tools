@@ -9,6 +9,7 @@ export interface YtdlpFormat {
   ext: string;
   format: string;
   quality: string;
+  format_note?: string;
   filesize?: number;
   fps?: number;
   vcodec?: string;
