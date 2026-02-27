@@ -561,70 +561,79 @@ export function MediaTimeline({
         </div>
       </div>
 
-      {/* Playback controls */}
-      <div className="flex items-center justify-center gap-3">
-        <button
-          onClick={skipToStart}
-          disabled={!showContent}
-          className="w-9 h-9 flex items-center justify-center rounded-md bg-zinc-900 border border-white/10 hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Skip to start"
-        >
-          <SkipBack className="w-4 h-4 text-zinc-400" />
-        </button>
+      {/* Combined controls row */}
+      <div className="flex items-center justify-center gap-4">
+        {/* Playback controls */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={skipToStart}
+            disabled={!showContent}
+            className="w-8 h-8 flex items-center justify-center rounded-md bg-zinc-900 border border-white/10 hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Skip to start"
+          >
+            <SkipBack className="w-3.5 h-3.5 text-zinc-400" />
+          </button>
 
-        <button
-          onClick={togglePlay}
-          disabled={!showContent}
-          className="w-12 h-12 flex items-center justify-center rounded-full bg-white text-black hover:bg-zinc-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title={isPlaying ? "Pause" : "Play"}
-        >
-          {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
-        </button>
+          <button
+            onClick={togglePlay}
+            disabled={!showContent}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-white text-black hover:bg-zinc-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title={isPlaying ? "Pause" : "Play"}
+          >
+            {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+          </button>
 
-        <button
-          onClick={skipToEnd}
-          disabled={!showContent}
-          className="w-9 h-9 flex items-center justify-center rounded-md bg-zinc-900 border border-white/10 hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Skip to end"
-        >
-          <SkipForward className="w-4 h-4 text-zinc-400" />
-        </button>
-      </div>
+          <button
+            onClick={skipToEnd}
+            disabled={!showContent}
+            className="w-8 h-8 flex items-center justify-center rounded-md bg-zinc-900 border border-white/10 hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Skip to end"
+          >
+            <SkipForward className="w-3.5 h-3.5 text-zinc-400" />
+          </button>
+        </div>
 
-      {/* Volume control */}
-      <div className="flex items-center justify-center gap-3">
-        <button
-          onClick={toggleMute}
-          className="w-8 h-8 flex items-center justify-center rounded-md bg-zinc-900 border border-white/10 hover:bg-white/5 transition-colors"
-          title={isMuted ? "Unmute" : "Mute"}
-        >
-          {isMuted || volume === 0 ? (
-            <VolumeX className="w-4 h-4 text-zinc-500" />
-          ) : (
-            <Volume2 className="w-4 h-4 text-zinc-400" />
-          )}
-        </button>
+        {/* Divider */}
+        <div className="w-px h-6 bg-white/10" />
 
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.01"
-          value={isMuted ? 0 : volume}
-          onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-          className="w-24 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-white"
-        />
+        {/* Current time display */}
+        <div className="flex items-baseline gap-1 min-w-[100px]">
+          <span className="text-sm font-mono text-white">{formatTime(currentTime)}</span>
+          <span className="text-zinc-600">/</span>
+          <span className="text-sm font-mono text-zinc-500">{formatTime(endTime)}</span>
+        </div>
 
-        <span className="text-xs text-zinc-500 w-8">
-          {Math.round((isMuted ? 0 : volume) * 100)}%
-        </span>
-      </div>
+        {/* Divider */}
+        <div className="w-px h-6 bg-white/10" />
 
-      {/* Current time display */}
-      <div className="text-center">
-        <span className="text-base font-mono text-white">{formatTime(currentTime)}</span>
-        <span className="text-zinc-500"> / </span>
-        <span className="text-base font-mono text-zinc-500">{formatTime(endTime)}</span>
+        {/* Volume control */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleMute}
+            className="w-7 h-7 flex items-center justify-center rounded-md bg-zinc-900 border border-white/10 hover:bg-white/5 transition-colors"
+            title={isMuted ? "Unmute" : "Mute"}
+          >
+            {isMuted || volume === 0 ? (
+              <VolumeX className="w-3.5 h-3.5 text-zinc-500" />
+            ) : (
+              <Volume2 className="w-3.5 h-3.5 text-zinc-400" />
+            )}
+          </button>
+
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={isMuted ? 0 : volume}
+            onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+            className="w-20 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-white"
+          />
+
+          <span className="text-xs text-zinc-500 w-7 text-right">
+            {Math.round((isMuted ? 0 : volume) * 100)}%
+          </span>
+        </div>
       </div>
     </div>
   );
