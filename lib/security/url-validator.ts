@@ -69,7 +69,7 @@ export async function detectUrlType(url: string): Promise<"direct" | "page"> {
   }
 }
 
-function getFilenameFromUrl(url: string, contentType?: string): string {
+export function getFilenameFromUrl(url: string, contentType?: string): string {
   try {
     const parsed = new URL(url);
     const pathname = parsed.pathname;
@@ -109,7 +109,7 @@ function getExtensionFromMimeType(mimeType: string): string | null {
   return map[clean] ?? null;
 }
 
-async function fetchHead(url: string): Promise<Response> {
+export async function fetchHead(url: string): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
 
