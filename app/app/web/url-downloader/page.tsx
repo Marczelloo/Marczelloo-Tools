@@ -9,6 +9,17 @@ import type { ToolDefinition } from "@/lib/featureFlags";
 // TYPES
 // ============================================================================
 
+interface Format {
+  id: string;
+  ext: string;
+  quality: string;
+  filesize: number | null;
+  hasVideo: boolean;
+  hasAudio: boolean;
+  vcodec: string;
+  acodec: string;
+}
+
 interface MediaInfo {
   url: string;
   filename: string;
@@ -16,6 +27,10 @@ interface MediaInfo {
   mimeType: string;
   canDownload: boolean;
   disclaimer: string;
+  canConvertToMp3?: boolean;
+  title?: string;
+  thumbnail?: string;
+  duration?: number;
 }
 
 // ============================================================================
@@ -29,6 +44,12 @@ function formatSize(bytes: number): string {
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
 }
 
+function formatDuration(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
 // ============================================================================
 // URL DOWNLOADER COMPONENT
 // ============================================================================
@@ -37,6 +58,10 @@ function UrlDownloaderInner(): React.JSX.Element {
   const { tool } = useTool();
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
+  const [formats, setFormats] = useState<Format[] | null>(null);
+  const [selectedFormat, setSelectedFormat] = useState<string | null>(null);
+  const [convertToMp3, setConvertToMp3] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [mediaInfo, setMediaInfo] = useState<MediaInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,7 +71,6 @@ function UrlDownloaderInner(): React.JSX.Element {
       return;
     }
 
-    // Basic URL validation
     try {
       new URL(url);
     } catch {
@@ -56,14 +80,14 @@ function UrlDownloaderInner(): React.JSX.Element {
 
     setLoading(true);
     setError(null);
+    setFormats(null);
+    setSelectedFormat(null);
     setMediaInfo(null);
 
     try {
-      const response = await fetch("/api/tools/url-downloader", {
+      const response = await fetch("/api/tools/url-downloader/check", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
 
@@ -74,7 +98,30 @@ function UrlDownloaderInner(): React.JSX.Element {
         return;
       }
 
-      setMediaInfo(data.media);
+      if (data.type === "direct") {
+        setMediaInfo({
+          url,
+          filename: data.direct.filename,
+          size: data.direct.size,
+          mimeType: data.direct.mimeType,
+          canDownload: true,
+          disclaimer: "You must have rights to download this content.",
+          canConvertToMp3: data.direct.canConvertToMp3 ?? false,
+        });
+      } else if (data.type === "formats") {
+        setFormats(data.formats.formats);
+        setMediaInfo({
+          url: "",
+          filename: data.formats.title ?? "video",
+          size: 0,
+          mimeType: "video/mp4",
+          canDownload: true,
+          disclaimer: "You must have rights to download this content.",
+          title: data.formats.title,
+          thumbnail: data.formats.thumbnail,
+          duration: data.formats.duration,
+        });
+      }
     } catch {
       setError("Failed to connect to server");
     } finally {
@@ -82,12 +129,56 @@ function UrlDownloaderInner(): React.JSX.Element {
     }
   }, [url]);
 
-  const handleDownload = useCallback(() => {
-    if (mediaInfo?.url) {
-      // Open the direct URL in a new tab for download
-      window.open(mediaInfo.url, "_blank");
+  const handleDownload = useCallback(async () => {
+    if (!url.trim() || downloading) return;
+
+    setDownloading(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/tools/url-downloader/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url,
+          formatId: selectedFormat,
+          convertToMp3,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        setError(err.error || "Download failed");
+        return;
+      }
+
+      // Get filename from header
+      const contentDisposition = response.headers.get("content-disposition");
+      const filenameMatch = contentDisposition?.match(/filename="?(.+)"?/);
+      const filename = filenameMatch?.[1] || "download";
+
+      // Download blob
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+
+    } catch {
+      setError("Download failed");
+    } finally {
+      setDownloading(false);
     }
-  }, [mediaInfo]);
+  }, [url, selectedFormat, convertToMp3, downloading]);
+
+  const canShowMp3Toggle =
+    mediaInfo?.canConvertToMp3 ||
+    (formats && selectedFormat && formats.find(f => f.id === selectedFormat)?.hasVideo);
 
   return (
     <div className="h-[calc(100vh-73px)] flex flex-col">
@@ -97,18 +188,15 @@ function UrlDownloaderInner(): React.JSX.Element {
         backButton={{ href: "/app" as const, label: "Back to Dashboard" }}
       />
 
-      {/* Main Content */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-0 min-h-0">
         {/* Left Panel - Input */}
         <div className="flex flex-col border-r border-white/10">
-          {/* Toolbar */}
           <div className="flex-shrink-0 px-4 py-3 border-b border-white/10 bg-zinc-950">
             <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
               Enter Media URL
             </h3>
           </div>
 
-          {/* Input Area */}
           <div className="flex-1 p-6 flex flex-col">
             <div className="mb-4">
               <input
@@ -116,7 +204,7 @@ function UrlDownloaderInner(): React.JSX.Element {
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleFetchInfo()}
-                placeholder="https://example.com/video.mp4"
+                placeholder="https://example.com/video"
                 className="w-full px-4 py-3 bg-black border border-white/10 rounded-md text-white font-mono text-sm focus:outline-none focus:border-white/30"
               />
             </div>
@@ -129,14 +217,51 @@ function UrlDownloaderInner(): React.JSX.Element {
               {loading ? "Checking..." : "Check URL"}
             </button>
 
-            {/* Legal Disclaimer */}
-            <div className="mt-6 p-4 bg-zinc-900/50 rounded-md">
-              <p className="text-xs text-zinc-500">
-                <strong>Legal Notice:</strong> Download media from public URLs only.
-                You must have rights to download this content. This tool does not
-                support streaming platforms or copyright-protected content.
-              </p>
-            </div>
+            {/* Format Selector */}
+            {formats && (
+              <div className="mt-4">
+                <p className="text-xs text-zinc-500 mb-2">Select format:</p>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {formats.map((fmt) => (
+                    <button
+                      key={fmt.id}
+                      onClick={() => setSelectedFormat(fmt.id)}
+                      className={`w-full px-4 py-3 rounded-md text-left transition-colors ${
+                        selectedFormat === fmt.id
+                          ? "bg-white text-black border-transparent"
+                          : "bg-black border border-white/10 text-white hover:bg-white/5"
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="font-mono text-sm">{fmt.quality}</span>
+                        <span className="text-xs opacity-70">{fmt.ext.toUpperCase()}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* MP3 Conversion Toggle */}
+            {canShowMp3Toggle && (
+              <div className="mt-4">
+                <button
+                  onClick={() => setConvertToMp3(!convertToMp3)}
+                  className={`w-full px-4 py-3 rounded-md text-left transition-colors ${
+                    convertToMp3
+                      ? "bg-white text-black border-transparent"
+                      : "bg-black border border-white/10 text-white hover:bg-white/5"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Convert to MP3</span>
+                    <span className="font-mono text-xs opacity-70">
+                      {convertToMp3 ? "ON" : "OFF"}
+                    </span>
+                  </div>
+                </button>
+              </div>
+            )}
 
             {/* Supported Formats */}
             <div className="mt-4">
@@ -159,14 +284,12 @@ function UrlDownloaderInner(): React.JSX.Element {
 
         {/* Right Panel - Output */}
         <div className="flex flex-col">
-          {/* Toolbar */}
           <div className="flex-shrink-0 px-4 py-3 border-b border-white/10 bg-zinc-950">
             <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
               Media Info
             </h3>
           </div>
 
-          {/* Output */}
           <div className="flex-1 p-6 overflow-auto">
             {/* Error */}
             {error && (
@@ -176,8 +299,8 @@ function UrlDownloaderInner(): React.JSX.Element {
               </div>
             )}
 
-            {/* Media Info */}
-            {mediaInfo && (
+            {/* Media Info - Direct */}
+            {mediaInfo && !formats && (
               <div className="space-y-4">
                 <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
                   <p className="text-white font-medium mb-3">Media Found</p>
@@ -213,39 +336,60 @@ function UrlDownloaderInner(): React.JSX.Element {
                     </div>
                   </div>
 
-                  {/* Disclaimer */}
                   <div className="mt-4 p-3 bg-zinc-950 rounded text-xs text-zinc-500">
                     {mediaInfo.disclaimer}
                   </div>
 
-                  {/* Download Button */}
                   <button
                     onClick={handleDownload}
-                    className="mt-4 w-full px-4 py-3 bg-white text-black font-medium rounded-md hover:bg-zinc-200 transition-colors"
+                    disabled={downloading}
+                    className="mt-4 w-full px-4 py-3 bg-white text-black font-medium rounded-md hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    Download File
+                    {downloading ? "Downloading..." : "Download File"}
                   </button>
                 </div>
+              </div>
+            )}
 
-                {/* Alternative: Direct Link */}
-                <div className="text-center">
-                  <p className="text-xs text-zinc-500 mb-2">
-                    Or right-click to save:
+            {/* Format Selection Result */}
+            {mediaInfo && formats && (
+              <div className="space-y-4">
+                <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
+                  {mediaInfo.thumbnail && (
+                    <img
+                      src={mediaInfo.thumbnail}
+                      alt={mediaInfo.title}
+                      className="w-full rounded-md mb-4"
+                    />
+                  )}
+
+                  <p className="text-white font-medium mb-1">
+                    {mediaInfo.title}
                   </p>
-                  <a
-                    href={mediaInfo.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-zinc-400 hover:text-white transition-colors"
+
+                  {mediaInfo.duration && (
+                    <p className="text-zinc-500 text-xs mb-3 font-mono">
+                      Duration: {formatDuration(mediaInfo.duration)}
+                    </p>
+                  )}
+
+                  <div className="mt-4 p-3 bg-zinc-950 rounded text-xs text-zinc-500">
+                    {mediaInfo.disclaimer}
+                  </div>
+
+                  <button
+                    onClick={handleDownload}
+                    disabled={!selectedFormat || downloading}
+                    className="mt-4 w-full px-4 py-3 bg-white text-black font-medium rounded-md hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    Direct Link
-                  </a>
+                    {downloading ? "Downloading..." : "Download"}
+                  </button>
                 </div>
               </div>
             )}
 
             {/* Empty State */}
-            {!error && !mediaInfo && (
+            {!error && !mediaInfo && !formats && (
               <div className="flex items-center justify-center h-full">
                 <p className="text-zinc-500 text-center">
                   Enter a public media URL to get started
