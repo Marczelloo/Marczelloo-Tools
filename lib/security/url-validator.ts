@@ -33,6 +33,42 @@ function isValidUrl(url: string): boolean {
   }
 }
 
+export async function detectUrlType(url: string): Promise<"direct" | "page"> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(url, {
+      method: "HEAD",
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; MarczellooTools/1.0)",
+      },
+    });
+
+    clearTimeout(timeoutId);
+
+    const contentType = response.headers.get("content-type") ?? "";
+
+    // Check if direct media file
+    if (contentType.match(/video\/|audio\//)) {
+      return "direct";
+    }
+
+    // Check URL extension as fallback
+    const urlLower = url.toLowerCase();
+    if (urlLower.match(/\.(mp4|mp3|webm|wav|ogg|mov|m4a)(\?|$)/)) {
+      return "direct";
+    }
+
+    return "page";
+  } catch {
+    // If HEAD fails, assume it's a page needing yt-dlp
+    return "page";
+  }
+}
+
 function getFilenameFromUrl(url: string, contentType?: string): string {
   try {
     const parsed = new URL(url);
