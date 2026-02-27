@@ -122,8 +122,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    // Filter and sort formats
+    // Prioritize: formats with BOTH video AND audio, then audio-only
     const formats = ytdlpResult.info.formats
-      .filter(f => f.ext === "mp4" || f.ext === "mp3" || f.ext === "webm" || f.ext === "m4a")
+      .filter(f => {
+        // Only allow mp4, webm, m4a, mp3
+        if (!["mp4", "webm", "m4a", "mp3"].includes(f.ext)) return false;
+
+        // For video: require both video AND audio (no silent videos)
+        // For audio: require audio only
+        if (f.has_video) {
+          return f.has_audio;  // Video formats MUST have audio
+        }
+        return f.has_audio;  // Audio-only formats
+      })
       .map(f => ({
         id: f.format_id,
         ext: f.ext,
@@ -133,7 +145,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         hasAudio: f.has_audio,
         vcodec: f.vcodec,
         acodec: f.acodec,
-      }));
+      }))
+      .sort((a, b) => {
+        // Sort by quality (higher resolution first)
+        const aRes = parseInt(a.quality) || 0;
+        const bRes = parseInt(b.quality) || 0;
+        return bRes - aRes;
+      });
 
     return NextResponse.json({
       success: true,

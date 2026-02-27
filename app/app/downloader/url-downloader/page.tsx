@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { PageHeader } from "@/components/layout";
 import { ToolProvider, useTool } from "@/lib/tool-context";
 import type { ToolDefinition } from "@/lib/featureFlags";
+import { Film } from "lucide-react";
 
 // ============================================================================
 // TYPES
@@ -47,7 +48,20 @@ function formatSize(bytes: number): string {
 function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
+  const hrs = Math.floor(seconds / 3600);
+  if (hrs > 0) {
+    return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
   return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function getYouTubeThumbnail(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  const match = url?.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/]+)/);
+  if (match && match[1]) {
+    return `https://i.ytimg.com/vi/${match[1]}/maxresdefault.jpg`;
+  }
+  return url;
 }
 
 // ============================================================================
@@ -68,7 +82,7 @@ function ProgressBar({ progress, message }: ProgressBarProps) {
       </div>
       <div className="h-2 bg-black rounded-full overflow-hidden">
         <div
-          className="h-full bg-white transition-all duration-300 ease-out"
+          className="h-full bg-white transition-all duration-200 ease-out"
           style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
         />
       </div>
@@ -92,6 +106,7 @@ function UrlDownloaderInner(): React.JSX.Element {
   const [downloadMessage, setDownloadMessage] = useState("Starting download...");
   const [mediaInfo, setMediaInfo] = useState<MediaInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [thumbnailError, setThumbnailError] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleFetchInfo = useCallback(async () => {
@@ -112,6 +127,7 @@ function UrlDownloaderInner(): React.JSX.Element {
     setFormats(null);
     setSelectedFormat(null);
     setMediaInfo(null);
+    setThumbnailError(false);
 
     try {
       const response = await fetch("/api/tools/url-downloader/check", {
@@ -140,7 +156,7 @@ function UrlDownloaderInner(): React.JSX.Element {
       } else if (data.type === "formats") {
         setFormats(data.formats.formats);
         setMediaInfo({
-          url: "",
+          url,
           filename: data.formats.title ?? "video",
           size: 0,
           mimeType: "video/mp4",
@@ -163,7 +179,7 @@ function UrlDownloaderInner(): React.JSX.Element {
 
     setDownloading(true);
     setDownloadProgress(0);
-    setDownloadMessage("Starting download...");
+    setDownloadMessage("Connecting to server...");
     setError(null);
 
     const abortController = new AbortController();
@@ -184,10 +200,11 @@ function UrlDownloaderInner(): React.JSX.Element {
       if (!response.ok) {
         const err = await response.json();
         setError(err.error || "Download failed");
+        setDownloading(false);
         return;
       }
 
-      setDownloadMessage("Receiving file...");
+      setDownloadMessage("Downloading media...");
 
       const contentDisposition = response.headers.get("content-disposition");
       const filenameMatch = contentDisposition?.match(/filename="?(.+)"?/);
@@ -199,6 +216,7 @@ function UrlDownloaderInner(): React.JSX.Element {
       const reader = response.body?.getReader();
       if (!reader) {
         setError("Failed to read response");
+        setDownloading(false);
         return;
       }
 
@@ -216,9 +234,10 @@ function UrlDownloaderInner(): React.JSX.Element {
           const percent = (receivedLength / total) * 100;
           setDownloadProgress(percent);
 
-          if (percent < 20) setDownloadMessage("Downloading...");
-          else if (percent < 50) setDownloadMessage("Halfway there...");
-          else if (percent < 80) setDownloadMessage("Almost done...");
+          if (percent < 25) setDownloadMessage("Downloading...");
+          else if (percent < 50) setDownloadMessage("Almost half...");
+          else if (percent < 75) setDownloadMessage("More than halfway...");
+          else if (percent < 95) setDownloadMessage("Almost done...");
           else setDownloadMessage("Finalizing...");
         } else {
           setDownloadMessage("Downloading...");
@@ -243,14 +262,14 @@ function UrlDownloaderInner(): React.JSX.Element {
       if (err instanceof Error && err.name === "AbortError") {
         setError("Download cancelled");
       } else {
-        setError("Download failed");
+        setError("Download failed - try again");
       }
     } finally {
       setDownloading(false);
       abortControllerRef.current = null;
       setTimeout(() => {
         setDownloadProgress(0);
-      }, 2000);
+      }, 3000);
     }
   }, [url, selectedFormat, convertToMp3, downloading]);
 
@@ -261,6 +280,8 @@ function UrlDownloaderInner(): React.JSX.Element {
   const selectedFormatObj = formats && selectedFormat
     ? formats.find(f => f.id === selectedFormat)
     : null;
+
+  const fallbackThumbnail = mediaInfo?.url ? getYouTubeThumbnail(mediaInfo.url) : undefined;
 
   return (
     <div className="h-[calc(100vh-73px)] flex flex-col">
@@ -286,7 +307,7 @@ function UrlDownloaderInner(): React.JSX.Element {
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleFetchInfo()}
-                placeholder="https://example.com/video"
+                placeholder="https://www.youtube.com/watch?v=..."
                 className="w-full px-4 py-3 bg-black border border-white/10 rounded-md text-white font-mono text-sm focus:outline-none focus:border-white/30"
               />
             </div>
@@ -302,7 +323,7 @@ function UrlDownloaderInner(): React.JSX.Element {
             {/* Format Selector */}
             {formats && (
               <div className="mt-4">
-                <p className="text-xs text-zinc-500 mb-2">Select format:</p>
+                <p className="text-xs text-zinc-500 mb-2">Select quality:</p>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {formats.map((fmt) => (
                     <button
@@ -321,6 +342,9 @@ function UrlDownloaderInner(): React.JSX.Element {
                     </button>
                   ))}
                 </div>
+                <p className="text-xs text-zinc-600 mt-2">
+                  All formats include video + audio
+                </p>
               </div>
             )}
 
@@ -336,7 +360,7 @@ function UrlDownloaderInner(): React.JSX.Element {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">Convert to MP3</span>
+                    <span className="text-sm">Extract audio (MP3)</span>
                     <span className="font-mono text-xs opacity-70">
                       {convertToMp3 ? "ON" : "OFF"}
                     </span>
@@ -346,21 +370,19 @@ function UrlDownloaderInner(): React.JSX.Element {
             )}
 
             {/* Supported Formats */}
-            <div className="mt-4">
-              <p className="text-xs text-zinc-500 mb-2">Supported formats:</p>
+            <div className="mt-auto pt-4">
+              <p className="text-xs text-zinc-500 mb-2">Supported:</p>
               <div className="flex flex-wrap gap-2">
-                {["MP4", "WebM", "MP3", "WAV", "PNG", "JPG", "PDF"].map((fmt) => (
+                {["YouTube", "Vimeo", "Direct MP4/MP3"].map((fmt) => (
                   <span
                     key={fmt}
-                    className="px-2 py-1 bg-black border border-white/10 rounded text-xs text-zinc-400 font-mono"
+                    className="px-2 py-1 bg-black border border-white/10 rounded text-xs text-zinc-400"
                   >
                     {fmt}
                   </span>
                 ))}
               </div>
             </div>
-
-            <div className="flex-1" />
           </div>
         </div>
 
@@ -372,7 +394,7 @@ function UrlDownloaderInner(): React.JSX.Element {
             </h3>
           </div>
 
-          <div className="flex-1 p-6 overflow-auto">
+          <div className="flex-1 p-6 overflow-auto flex flex-col">
             {/* Error */}
             {error && (
               <div className="p-4 bg-zinc-900 border border-zinc-700 rounded-md">
@@ -381,16 +403,9 @@ function UrlDownloaderInner(): React.JSX.Element {
               </div>
             )}
 
-            {/* Download Progress */}
-            {downloading && (
-              <div className="mb-4 p-4 bg-zinc-900/50 border border-white/10 rounded-md">
-                <ProgressBar progress={downloadProgress} message={downloadMessage} />
-              </div>
-            )}
-
             {/* Media Info - Direct */}
             {mediaInfo && !formats && (
-              <div className="space-y-4">
+              <div className="space-y-4 flex-1">
                 <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
                   <p className="text-white font-medium mb-3">Media Found</p>
 
@@ -416,17 +431,6 @@ function UrlDownloaderInner(): React.JSX.Element {
                         </p>
                       </div>
                     </div>
-
-                    <div>
-                      <p className="text-zinc-500">Source URL</p>
-                      <p className="text-white font-mono text-xs break-all">
-                        {mediaInfo.url}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 p-3 bg-zinc-950 rounded text-xs text-zinc-500">
-                    {mediaInfo.disclaimer}
                   </div>
 
                   <button
@@ -436,64 +440,85 @@ function UrlDownloaderInner(): React.JSX.Element {
                   >
                     {downloading ? "Downloading..." : "Download File"}
                   </button>
+
+                  {/* Progress Bar */}
+                  {downloading && (
+                    <div className="mt-4 pt-4 border-t border-white/10">
+                      <ProgressBar progress={downloadProgress} message={downloadMessage} />
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
             {/* Format Selection Result */}
             {mediaInfo && formats && (
-              <div className="space-y-4">
+              <div className="space-y-4 flex-1">
                 <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
-                  {mediaInfo.thumbnail && (
-                    <div className="mb-4 rounded-md overflow-hidden bg-black aspect-video flex items-center justify-center">
+                  {/* Thumbnail */}
+                  <div className="mb-4 -mx-4 -mt-4 aspect-video bg-black rounded-t-md overflow-hidden relative">
+                    {mediaInfo.thumbnail && !thumbnailError ? (
                       <img
                         src={mediaInfo.thumbnail}
                         alt={mediaInfo.title}
                         className="w-full h-full object-contain"
                         referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
-                        }}
+                        onError={() => setThumbnailError(true)}
                       />
-                    </div>
-                  )}
+                    ) : fallbackThumbnail && !thumbnailError ? (
+                      <img
+                        src={fallbackThumbnail}
+                        alt={mediaInfo.title}
+                        className="w-full h-full object-contain"
+                        referrerPolicy="no-referrer"
+                        onError={() => setThumbnailError(true)}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-zinc-900">
+                        <Film className="w-12 h-12 text-zinc-700" />
+                      </div>
+                    )}
+                  </div>
 
                   <p className="text-white font-medium mb-1">
                     {mediaInfo.title}
                   </p>
 
                   {selectedFormatObj && (
-                    <p className="text-zinc-500 text-xs mb-2 font-mono">
-                      Selected: {selectedFormatObj.quality} .{selectedFormatObj.ext.toUpperCase()}
+                    <p className="text-zinc-400 text-xs mb-2 font-mono">
+                      {selectedFormatObj.quality} • {selectedFormatObj.ext.toUpperCase()}
                     </p>
                   )}
 
                   {mediaInfo.duration && (
-                    <p className="text-zinc-500 text-xs mb-3 font-mono">
+                    <p className="text-zinc-500 text-xs mb-1 font-mono">
                       Duration: {formatDuration(mediaInfo.duration)}
                     </p>
                   )}
 
-                  <div className="mt-4 p-3 bg-zinc-950 rounded text-xs text-zinc-500">
-                    {mediaInfo.disclaimer}
-                  </div>
-
                   <button
                     onClick={handleDownload}
                     disabled={!selectedFormat || downloading}
-                    className="mt-4 w-full px-4 py-3 bg-white text-black font-medium rounded-md hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="w-full px-4 py-3 bg-white text-black font-medium rounded-md hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {downloading ? "Downloading..." : "Download"}
                   </button>
+
+                  {/* Progress Bar */}
+                  {downloading && (
+                    <div className="mt-4 pt-4 border-t border-white/10">
+                      <ProgressBar progress={downloadProgress} message={downloadMessage} />
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
             {/* Empty State */}
             {!error && !mediaInfo && !formats && (
-              <div className="flex items-center justify-center h-full">
+              <div className="flex-1 flex items-center justify-center">
                 <p className="text-zinc-500 text-center">
-                  Enter a public media URL to get started
+                  Enter a YouTube URL or direct media link to get started
                 </p>
               </div>
             )}

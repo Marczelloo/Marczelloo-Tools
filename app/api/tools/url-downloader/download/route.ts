@@ -29,8 +29,10 @@ function getFilenameFromUrl(url: string): string {
   try {
     const parsed = new URL(url);
     const pathname = parsed.pathname;
-    const filename = pathname.split("/").pop() || "download";
-    return filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+    let filename = pathname.split("/").pop() || "download";
+    // Replace invalid chars with underscore, but strip trailing underscores
+    filename = filename.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/_+$/, "");
+    return filename || "download";
   } catch {
     return "download";
   }
@@ -171,12 +173,15 @@ async function handleYtdlpDownload(url: string, formatId: string): Promise<NextR
   // Get filename and extension from yt-dlp info
   const infoResult = await getYtdlpFormats(url);
 
-  let filename = "download.mp4";
+  let filename = "video.mp4";
   let ext = "mp4";
   let contentType = "video/mp4";
 
   if (infoResult.success && infoResult.info) {
-    const sanitizedTitle = infoResult.info.title.replace(/[^a-zA-Z0-9._-]/g, "_");
+    // Sanitize title - replace invalid chars and strip trailing chars
+    let sanitizedTitle = infoResult.info.title.replace(/[^a-zA-Z0-9._-]/g, "_");
+    sanitizedTitle = sanitizedTitle.replace(/^_+|_+$/g, ""); // Strip leading/trailing underscores
+    if (!sanitizedTitle) sanitizedTitle = "video";
 
     // Find the selected format to get the correct extension
     const selectedFormat = infoResult.info.formats.find(f => f.format_id === formatId);
