@@ -562,7 +562,7 @@ export function MediaTimeline({
       </div>
 
       {/* Combined controls row */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-4 relative">
         {/* Current time display - LEFT */}
         <div className="flex items-baseline gap-1 min-w-[100px]">
           <span className="text-sm font-mono text-white">{formatTime(currentTime)}</span>
@@ -570,8 +570,8 @@ export function MediaTimeline({
           <span className="text-sm font-mono text-zinc-500">{formatTime(endTime)}</span>
         </div>
 
-        {/* Playback controls - CENTER */}
-        <div className="flex items-center gap-2">
+        {/* Playback controls - CENTER (absolute positioned) */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2">
           <button
             onClick={skipToStart}
             disabled={!showContent}
