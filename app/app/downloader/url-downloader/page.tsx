@@ -114,6 +114,7 @@ function UrlDownloaderInner(): React.JSX.Element {
   const [mediaInfo, setMediaInfo] = useState<MediaInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [thumbnailError, setThumbnailError] = useState(false);
+  const [fallbackThumbnailError, setFallbackThumbnailError] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleFetchInfo = useCallback(async () => {
@@ -135,6 +136,7 @@ function UrlDownloaderInner(): React.JSX.Element {
     setSelectedFormat(null);
     setMediaInfo(null);
     setThumbnailError(false);
+    setFallbackThumbnailError(false);
     setSelectedMediaType("video+audio");
 
     try {
@@ -525,13 +527,13 @@ function UrlDownloaderInner(): React.JSX.Element {
                         referrerPolicy="no-referrer"
                         onError={() => setThumbnailError(true)}
                       />
-                    ) : fallbackThumbnail && !thumbnailError ? (
+                    ) : fallbackThumbnail && !fallbackThumbnailError ? (
                       <img
                         src={fallbackThumbnail}
                         alt={mediaInfo.title}
                         className="w-full h-full object-contain"
                         referrerPolicy="no-referrer"
-                        onError={() => setThumbnailError(true)}
+                        onError={() => setFallbackThumbnailError(true)}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-zinc-900">

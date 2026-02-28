@@ -69,7 +69,48 @@ export const DEFAULT_SECURITY_CONFIG: SecurityHeadersConfig = {
       "'unsafe-inline'", // Required for Tailwind
       "https://fonts.googleapis.com", // Google Fonts CSS
     ],
-    "img-src": ["'self'", "data:", "blob:"],
+    "img-src": [
+      "'self'",
+      "data:",
+      "blob:",
+      // YouTube
+      "https://i.ytimg.com",
+      "https://*.ytimg.com",
+      "https://img.youtube.com",
+      // Twitter/X
+      "https://pbs.twimg.com",
+      "https://*.twimg.com",
+      // Instagram/Meta
+      "https://*.cdninstagram.com",
+      "https://*.fbcdn.net",
+      // Vimeo
+      "https://*.vimeocdn.com",
+      "https://i.vimeocdn.com",
+      // TikTok
+      "https://*.tiktokcdn.com",
+      "https://p16-sign-va.tiktokcdn.com",
+      "https://*.bytecdn.com",
+      // Reddit
+      "https://*.redditmedia.com",
+      "https://i.redd.it",
+      "https://preview.redd.it",
+      "https://*.thumbs.redditmedia.com",
+      // Twitch
+      "https://static-cdn.jtvnw.net",
+      "https://*.cdn.twitch.tv",
+      // Dailymotion
+      "https://*.dmcdn.net",
+      // SoundCloud
+      "https://i1.sndcdn.com",
+      "https://*.sndcdn.com",
+      // Facebook
+      "https://*.facebook.com",
+      "https://*.fbcdn.com",
+      // General CDNs (covers many platforms)
+      "https://*.cloudfront.net",
+      "https://*.akamaized.net",
+      "https://*.cdn77.org",
+    ],
     "font-src": ["'self'", "data:", "https://fonts.gstatic.com"], // Google Fonts
     "connect-src": ["'self'", "https://api.marczelloo.dev", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
     "frame-ancestors": ["'none'"],
@@ -105,7 +146,48 @@ export const PRODUCTION_SECURITY_CONFIG: SecurityHeadersConfig = {
     "default-src": ["'self'"],
     "script-src": ["'self'"],
     "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-    "img-src": ["'self'", "data:", "blob:"],
+    "img-src": [
+      "'self'",
+      "data:",
+      "blob:",
+      // YouTube
+      "https://i.ytimg.com",
+      "https://*.ytimg.com",
+      "https://img.youtube.com",
+      // Twitter/X
+      "https://pbs.twimg.com",
+      "https://*.twimg.com",
+      // Instagram/Meta
+      "https://*.cdninstagram.com",
+      "https://*.fbcdn.net",
+      // Vimeo
+      "https://*.vimeocdn.com",
+      "https://i.vimeocdn.com",
+      // TikTok
+      "https://*.tiktokcdn.com",
+      "https://p16-sign-va.tiktokcdn.com",
+      "https://*.bytecdn.com",
+      // Reddit
+      "https://*.redditmedia.com",
+      "https://i.redd.it",
+      "https://preview.redd.it",
+      "https://*.thumbs.redditmedia.com",
+      // Twitch
+      "https://static-cdn.jtvnw.net",
+      "https://*.cdn.twitch.tv",
+      // Dailymotion
+      "https://*.dmcdn.net",
+      // SoundCloud
+      "https://i1.sndcdn.com",
+      "https://*.sndcdn.com",
+      // Facebook
+      "https://*.facebook.com",
+      "https://*.fbcdn.com",
+      // General CDNs (covers many platforms)
+      "https://*.cloudfront.net",
+      "https://*.akamaized.net",
+      "https://*.cdn77.org",
+    ],
     "font-src": ["'self'", "data:", "https://fonts.gstatic.com"],
     "connect-src": ["'self'"],
     "frame-ancestors": ["'none'"],
