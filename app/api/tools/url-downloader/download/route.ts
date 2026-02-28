@@ -10,12 +10,24 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import { isToolEnabled } from "@/lib/featureFlags";
-import { detectUrlType } from "@/lib/security/url-validator";
-import { getYtdlpFormats } from "@/lib/yt-dlp/runner";
+import { getYtdlpFormatsUniversal } from "@/lib/yt-dlp/runner";
 import { runFFmpeg } from "@/lib/ffmpeg/runner";
 import { spawn } from "child_process";
 
 const TOOL_ID = "url-downloader";
+
+// Media extensions that indicate a direct file
+const DIRECT_MEDIA_EXTENSIONS = [
+  ".mp4", ".webm", ".mkv", ".avi", ".mov", ".m4v",
+  ".mp3", ".m4a", ".ogg", ".wav", ".flac", ".aac",
+];
+
+function looksLikeDirectMedia(url: string): boolean {
+  const urlLower = url.toLowerCase();
+  return DIRECT_MEDIA_EXTENSIONS.some(ext =>
+    urlLower.includes(ext + "?") || urlLower.endsWith(ext)
+  );
+}
 
 function isValidUrl(url: string): boolean {
   try {
@@ -67,21 +79,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const urlType = await detectUrlType(url);
+    // If formatId provided, use yt-dlp
+    if (formatId) {
+      return await handleYtdlpDownload(url, formatId);
+    }
 
-    if (urlType === "direct") {
+    // If URL looks like direct media and no formatId, try direct download
+    if (looksLikeDirectMedia(url)) {
       return await handleDirectDownload(url, convertToMp3);
     }
 
-    // Page URL - use yt-dlp
-    if (!formatId) {
-      return NextResponse.json(
-        { success: false, error: "Format ID required" },
-        { status: 400 }
-      );
-    }
-
-    return await handleYtdlpDownload(url, formatId);
+    // No formatId and not a direct media URL - need to check first
+    return NextResponse.json(
+      { success: false, error: "Please check the URL first to select a format" },
+      { status: 400 }
+    );
   } catch (error) {
     console.error("Download error:", error);
     return NextResponse.json(
@@ -179,7 +191,7 @@ async function handleYtdlpDownload(url: string, formatId: string): Promise<NextR
   await mkdir(tmpDir, { recursive: true });
 
   // Get filename from yt-dlp info
-  const infoResult = await getYtdlpFormats(url);
+  const infoResult = await getYtdlpFormatsUniversal(url);
 
   let baseFilename = "video";
   let ext = "mp4";
@@ -207,17 +219,17 @@ async function handleYtdlpDownload(url: string, formatId: string): Promise<NextR
   const outputPath = join(tmpDir, `${uniqueId}.${ext}`);
   const finalFilename = `${baseFilename}.${ext}`;
 
-  // Download using yt-dlp to temp file
-  // For video-only formats, we need to explicitly tell yt-dlp to also download best audio
-  // The format selector "formatId+bestaudio" tells yt-dlp to download both and merge them
+  // Download using yt-dlp to temp file with maximum compatibility flags
   const formatSelector = formatId.includes("+") ? formatId : `${formatId}+bestaudio`;
 
   const ytdlpProc = spawn("yt-dlp", [
     "-f", formatSelector,
     "-o", outputPath,
     "--no-playlist",
+    "--no-check-certificates",           // Handle HTTPS certificate issues
     "--merge-output-format", "mp4",
     "--embed-metadata",
+    "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     url,
   ], { shell: false });
 
