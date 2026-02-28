@@ -190,28 +190,31 @@ async function handleYtdlpDownload(url: string, formatId: string): Promise<NextR
   const tmpDir = "./tmp/ytdlp";
   await mkdir(tmpDir, { recursive: true });
 
-  // Get filename from yt-dlp info
+  // Get info from yt-dlp
   const infoResult = await getYtdlpFormatsUniversal(url);
 
   let baseFilename = "video";
   let ext = "mp4";
   let contentType = "video/mp4";
+  let hasAudio = false;
 
   if (infoResult.success && infoResult.info) {
-    // Sanitize title - be very aggressive to avoid any trailing weird chars
+    // Sanitize title
     baseFilename = infoResult.info.title
-      .trim()                                // Remove leading/trailing whitespace
-      .replace(/[^\p{L}\p{N}\s-]/gu, "")     // Remove everything except letters, numbers, spaces, hyphens
-      .replace(/\s+/g, "_")                  // Replace spaces with underscores
-      .replace(/-+/g, "_")                   // Replace hyphens with underscores
-      .replace(/^_+|_+$/g, "");              // Strip leading/trailing underscores
+      .trim()
+      .replace(/[^\p{L}\p{N}\s-]/gu, "")
+      .replace(/\s+/g, "_")
+      .replace(/-+/g, "_")
+      .replace(/^_+|_+$/g, "");
     if (!baseFilename) baseFilename = "video";
 
-    // Find the selected format to get the correct extension
+    // Find the selected format
     const selectedFormat = infoResult.info.formats.find(f => f.format_id === formatId);
     if (selectedFormat) {
       ext = selectedFormat.ext;
       contentType = selectedFormat.has_video ? `video/${ext}` : `audio/${ext}`;
+      // Check if format already has audio
+      hasAudio = Boolean(selectedFormat.has_audio || (selectedFormat.acodec && selectedFormat.acodec !== "none"));
     }
   }
 
@@ -219,54 +222,85 @@ async function handleYtdlpDownload(url: string, formatId: string): Promise<NextR
   const outputPath = join(tmpDir, `${uniqueId}.${ext}`);
   const finalFilename = `${baseFilename}.${ext}`;
 
-  // Download using yt-dlp to temp file with maximum compatibility flags
-  const formatSelector = formatId.includes("+") ? formatId : `${formatId}+bestaudio`;
+  // Determine format selector:
+  // - If format already has audio, use just the format ID
+  // - If format is audio-only, use just the format ID
+  // - Otherwise, try with +bestaudio, fall back to just format ID
+  const formatSelectors = formatId.includes("+")
+    ? [formatId]
+    : hasAudio || contentType.startsWith("audio/")
+      ? [formatId]
+      : [`${formatId}+bestaudio`, formatId];
 
-  const ytdlpProc = spawn("yt-dlp", [
-    "-f", formatSelector,
-    "-o", outputPath,
-    "--no-playlist",
-    "--no-check-certificates",           // Handle HTTPS certificate issues
-    "--merge-output-format", "mp4",
-    "--embed-metadata",
-    "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    url,
-  ], { shell: false });
+  let lastError: Error | null = null;
 
-  // Capture stderr for better error messages
-  let stderr = "";
-  ytdlpProc.stderr?.on("data", (data) => {
-    stderr += data.toString();
-  });
+  for (const formatSelector of formatSelectors) {
+    try {
+      const result = await runYtdlpDownload(url, formatSelector, outputPath);
+      if (result.success) {
+        // Read the downloaded file
+        const { readFile } = await import("fs/promises");
+        const fileBuffer = await readFile(outputPath);
 
-  // Wait for process to complete
-  await new Promise<void>((resolve, reject) => {
+        // Schedule cleanup
+        setTimeout(() => unlink(outputPath).catch(() => {}), 5000);
+
+        return new NextResponse(fileBuffer, {
+          headers: {
+            "Content-Type": contentType,
+            "Content-Disposition": `attachment; filename="${finalFilename}"; filename*=UTF-8''${encodeURIComponent(finalFilename)}`,
+            "Content-Length": fileBuffer.length.toString(),
+          },
+        });
+      }
+      lastError = new Error(result.error || "Download failed");
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      console.log(`Format selector "${formatSelector}" failed, trying next...`);
+    }
+  }
+
+  // All attempts failed
+  throw lastError || new Error("Download failed");
+}
+
+interface DownloadResult {
+  success: boolean;
+  error?: string;
+}
+
+async function runYtdlpDownload(url: string, formatSelector: string, outputPath: string): Promise<DownloadResult> {
+  return new Promise((resolve) => {
+    const ytdlpProc = spawn("yt-dlp", [
+      "-f", formatSelector,
+      "-o", outputPath,
+      "--no-playlist",
+      "--no-check-certificates",
+      "--merge-output-format", "mp4",
+      "--embed-metadata",
+      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      url,
+    ], { shell: false });
+
+    let stderr = "";
+    ytdlpProc.stderr?.on("data", (data) => {
+      stderr += data.toString();
+    });
+
     ytdlpProc.on("close", (code) => {
-      if (code === 0) resolve();
-      else {
-        console.error("yt-dlp stderr:", stderr);
-        // Extract the most relevant error line
+      if (code === 0) {
+        resolve({ success: true });
+      } else {
         const errorLines = stderr.split("\n").filter((l: string) => l.trim() && !l.includes("[debug]"));
         const errorMsg = errorLines[errorLines.length - 1] || `yt-dlp exited with code ${code}`;
-        reject(new Error(errorMsg));
+        console.error(`yt-dlp stderr for "${formatSelector}":`, stderr);
+        resolve({ success: false, error: errorMsg });
       }
     });
-    ytdlpProc.on("error", reject);
-  });
 
-  // Read the downloaded file
-  const { readFile } = await import("fs/promises");
-  const fileBuffer = await readFile(outputPath);
-
-  // Schedule cleanup
-  setTimeout(() => unlink(outputPath).catch(() => {}), 5000);
-
-  return new NextResponse(fileBuffer, {
-    headers: {
-      "Content-Type": contentType,
-      "Content-Disposition": `attachment; filename="${finalFilename}"; filename*=UTF-8''${encodeURIComponent(finalFilename)}`,
-      "Content-Length": fileBuffer.length.toString(),
-    },
+    ytdlpProc.on("error", (err) => {
+      resolve({ success: false, error: err.message });
+    });
   });
 }
 
