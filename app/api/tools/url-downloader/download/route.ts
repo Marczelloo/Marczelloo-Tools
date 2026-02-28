@@ -307,13 +307,11 @@ async function runYtdlpDownload(url: string, formatSelector: string, outputPath:
     }, DOWNLOAD_TIMEOUT);
 
     let stderr = "";
-    let lastProgress = "";
 
     ytdlpProc.stdout?.on("data", (data) => {
       const str = data.toString();
-      // Capture progress info
+      // Log progress info
       if (str.includes("[download]")) {
-        lastProgress = str.trim();
         console.log("[yt-dlp]", str.trim());
       }
     });

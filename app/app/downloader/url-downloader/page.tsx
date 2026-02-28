@@ -77,20 +77,32 @@ function getYouTubeThumbnail(url: string | undefined): string | undefined {
 interface ProgressBarProps {
   progress: number;
   message?: string;
+  indeterminate?: boolean;
 }
 
-function ProgressBar({ progress, message }: ProgressBarProps) {
+function ProgressBar({ progress, message, indeterminate }: ProgressBarProps) {
+  const showIndeterminate = indeterminate || progress === 0;
+
   return (
     <div className="space-y-2">
       <div className="flex justify-between text-xs text-zinc-500">
         <span>{message || "Downloading..."}</span>
-        <span className="font-mono">{Math.round(progress)}%</span>
+        {!showIndeterminate && (
+          <span className="font-mono">{Math.round(progress)}%</span>
+        )}
       </div>
       <div className="h-2 bg-black rounded-full overflow-hidden">
-        <div
-          className="h-full bg-white transition-all duration-200 ease-out"
-          style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
-        />
+        {showIndeterminate ? (
+          <div
+            className="h-full bg-white rounded-full animate-pulse"
+            style={{ width: "30%" }}
+          />
+        ) : (
+          <div
+            className="h-full bg-white transition-all duration-200 ease-out"
+            style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+          />
+        )}
       </div>
     </div>
   );
@@ -111,6 +123,7 @@ function UrlDownloaderInner(): React.JSX.Element {
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadMessage, setDownloadMessage] = useState("Starting download...");
+  const [isFetchingFromSource, setIsFetchingFromSource] = useState(false);
   const [mediaInfo, setMediaInfo] = useState<MediaInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [thumbnailError, setThumbnailError] = useState(false);
@@ -189,7 +202,8 @@ function UrlDownloaderInner(): React.JSX.Element {
 
     setDownloading(true);
     setDownloadProgress(0);
-    setDownloadMessage("Connecting to server...");
+    setDownloadMessage("Fetching from source...");
+    setIsFetchingFromSource(true);
     setError(null);
 
     const abortController = new AbortController();
@@ -211,10 +225,13 @@ function UrlDownloaderInner(): React.JSX.Element {
         const err = await response.json();
         setError(err.error || "Download failed");
         setDownloading(false);
+        setIsFetchingFromSource(false);
         return;
       }
 
-      setDownloadMessage("Downloading media...");
+      // Now we're receiving data from server
+      setIsFetchingFromSource(false);
+      setDownloadMessage("Receiving file...");
 
       const contentDisposition = response.headers.get("content-disposition");
       const filenameMatch = contentDisposition?.match(/filename="?(.+)"?/);
@@ -244,13 +261,13 @@ function UrlDownloaderInner(): React.JSX.Element {
           const percent = (receivedLength / total) * 100;
           setDownloadProgress(percent);
 
-          if (percent < 25) setDownloadMessage("Downloading...");
-          else if (percent < 50) setDownloadMessage("Almost half...");
-          else if (percent < 75) setDownloadMessage("More than halfway...");
+          if (percent < 25) setDownloadMessage("Receiving file...");
+          else if (percent < 50) setDownloadMessage("Receiving file...");
+          else if (percent < 75) setDownloadMessage("Receiving file...");
           else if (percent < 95) setDownloadMessage("Almost done...");
           else setDownloadMessage("Finalizing...");
         } else {
-          setDownloadMessage("Downloading...");
+          setDownloadMessage("Receiving file...");
         }
       }
 
@@ -276,6 +293,7 @@ function UrlDownloaderInner(): React.JSX.Element {
       }
     } finally {
       setDownloading(false);
+      setIsFetchingFromSource(false);
       abortControllerRef.current = null;
       setTimeout(() => {
         setDownloadProgress(0);
@@ -506,7 +524,7 @@ function UrlDownloaderInner(): React.JSX.Element {
 
                   {downloading && (
                     <div className="mt-4 pt-4 border-t border-white/10">
-                      <ProgressBar progress={downloadProgress} message={downloadMessage} />
+                      <ProgressBar progress={downloadProgress} message={downloadMessage} indeterminate={isFetchingFromSource} />
                     </div>
                   )}
                 </div>
@@ -576,7 +594,7 @@ function UrlDownloaderInner(): React.JSX.Element {
 
                   {downloading && (
                     <div className="mt-4 pt-4 border-t border-white/10">
-                      <ProgressBar progress={downloadProgress} message={downloadMessage} />
+                      <ProgressBar progress={downloadProgress} message={downloadMessage} indeterminate={isFetchingFromSource} />
                     </div>
                   )}
                 </div>
