@@ -186,11 +186,14 @@ async function handleYtdlpDownload(url: string, formatId: string): Promise<NextR
   const { unlink, mkdir } = await import("fs/promises");
   const { join } = await import("path");
 
+  console.log("[Download] Starting download for:", url, "format:", formatId);
+
   // Create temp directory
   const tmpDir = "./tmp/ytdlp";
   await mkdir(tmpDir, { recursive: true });
 
   // Get info from yt-dlp
+  console.log("[Download] Getting format info...");
   const infoResult = await getYtdlpFormatsUniversal(url);
 
   let baseFilename = "video";
@@ -222,6 +225,8 @@ async function handleYtdlpDownload(url: string, formatId: string): Promise<NextR
   const outputPath = join(tmpDir, `${uniqueId}.${ext}`);
   const finalFilename = `${baseFilename}.${ext}`;
 
+  console.log("[Download] Output path:", outputPath, "hasAudio:", hasAudio);
+
   // Determine format selector:
   // - If format already has audio, use just the format ID
   // - If format is audio-only, use just the format ID
@@ -232,19 +237,26 @@ async function handleYtdlpDownload(url: string, formatId: string): Promise<NextR
       ? [formatId]
       : [`${formatId}+bestaudio`, formatId];
 
+  console.log("[Download] Format selectors to try:", formatSelectors);
+
   let lastError: Error | null = null;
 
   for (const formatSelector of formatSelectors) {
+    console.log("[Download] Trying format selector:", formatSelector);
     try {
       const result = await runYtdlpDownload(url, formatSelector, outputPath);
+      console.log("[Download] Result:", result.success ? "success" : "failed", result.error || "");
       if (result.success) {
         // Read the downloaded file
+        console.log("[Download] Reading file...");
         const { readFile } = await import("fs/promises");
         const fileBuffer = await readFile(outputPath);
+        console.log("[Download] File size:", fileBuffer.length, "bytes");
 
         // Schedule cleanup
         setTimeout(() => unlink(outputPath).catch(() => {}), 5000);
 
+        console.log("[Download] Sending response...");
         return new NextResponse(fileBuffer, {
           headers: {
             "Content-Type": contentType,
@@ -256,13 +268,16 @@ async function handleYtdlpDownload(url: string, formatId: string): Promise<NextR
       lastError = new Error(result.error || "Download failed");
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
-      console.log(`Format selector "${formatSelector}" failed, trying next...`);
+      console.log(`[Download] Format selector "${formatSelector}" failed:`, lastError.message);
     }
   }
 
   // All attempts failed
+  console.log("[Download] All format selectors failed");
   throw lastError || new Error("Download failed");
 }
+
+const DOWNLOAD_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
 interface DownloadResult {
   success: boolean;
@@ -271,6 +286,8 @@ interface DownloadResult {
 
 async function runYtdlpDownload(url: string, formatSelector: string, outputPath: string): Promise<DownloadResult> {
   return new Promise((resolve) => {
+    console.log("[yt-dlp] Spawning process with format:", formatSelector);
+
     const ytdlpProc = spawn("yt-dlp", [
       "-f", formatSelector,
       "-o", outputPath,
@@ -282,23 +299,45 @@ async function runYtdlpDownload(url: string, formatSelector: string, outputPath:
       url,
     ], { shell: false });
 
+    // Set timeout
+    const timeout = setTimeout(() => {
+      console.log("[yt-dlp] Timeout reached, killing process");
+      ytdlpProc.kill();
+      resolve({ success: false, error: "Download timed out" });
+    }, DOWNLOAD_TIMEOUT);
+
     let stderr = "";
+    let lastProgress = "";
+
+    ytdlpProc.stdout?.on("data", (data) => {
+      const str = data.toString();
+      // Capture progress info
+      if (str.includes("[download]")) {
+        lastProgress = str.trim();
+        console.log("[yt-dlp]", str.trim());
+      }
+    });
+
     ytdlpProc.stderr?.on("data", (data) => {
       stderr += data.toString();
     });
 
     ytdlpProc.on("close", (code) => {
+      clearTimeout(timeout);
       if (code === 0) {
+        console.log("[yt-dlp] Process completed successfully");
         resolve({ success: true });
       } else {
         const errorLines = stderr.split("\n").filter((l: string) => l.trim() && !l.includes("[debug]"));
         const errorMsg = errorLines[errorLines.length - 1] || `yt-dlp exited with code ${code}`;
-        console.error(`yt-dlp stderr for "${formatSelector}":`, stderr);
+        console.error(`[yt-dlp] Process failed with code ${code}:`, stderr);
         resolve({ success: false, error: errorMsg });
       }
     });
 
     ytdlpProc.on("error", (err) => {
+      clearTimeout(timeout);
+      console.error("[yt-dlp] Process error:", err);
       resolve({ success: false, error: err.message });
     });
   });
