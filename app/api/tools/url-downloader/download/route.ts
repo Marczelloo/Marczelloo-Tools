@@ -233,11 +233,23 @@ async function handleYtdlpDownload(url: string, formatId: string): Promise<NextR
     url,
   ], { shell: false });
 
+  // Capture stderr for better error messages
+  let stderr = "";
+  ytdlpProc.stderr?.on("data", (data) => {
+    stderr += data.toString();
+  });
+
   // Wait for process to complete
   await new Promise<void>((resolve, reject) => {
     ytdlpProc.on("close", (code) => {
       if (code === 0) resolve();
-      else reject(new Error(`yt-dlp exited with code ${code}`));
+      else {
+        console.error("yt-dlp stderr:", stderr);
+        // Extract the most relevant error line
+        const errorLines = stderr.split("\n").filter((l: string) => l.trim() && !l.includes("[debug]"));
+        const errorMsg = errorLines[errorLines.length - 1] || `yt-dlp exited with code ${code}`;
+        reject(new Error(errorMsg));
+      }
     });
     ytdlpProc.on("error", reject);
   });
