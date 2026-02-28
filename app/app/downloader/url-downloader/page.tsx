@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { PageHeader } from "@/components/layout";
 import { ToolProvider, useTool } from "@/lib/tool-context";
 import type { ToolDefinition } from "@/lib/featureFlags";
@@ -128,7 +128,6 @@ function UrlDownloaderInner(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [thumbnailError, setThumbnailError] = useState(false);
   const [fallbackThumbnailError, setFallbackThumbnailError] = useState(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleFetchInfo = useCallback(async () => {
     if (!url.trim()) {
@@ -202,104 +201,91 @@ function UrlDownloaderInner(): React.JSX.Element {
 
     setDownloading(true);
     setDownloadProgress(0);
-    setDownloadMessage("Fetching from source...");
+    setDownloadMessage("Starting download...");
     setIsFetchingFromSource(true);
     setError(null);
 
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-
     try {
-      const response = await fetch("/api/tools/url-downloader/download", {
+      // Step 1: Start the download job
+      const startResponse = await fetch("/api/tools/url-downloader/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           url,
           formatId: selectedFormat,
-          convertToMp3,
         }),
-        signal: abortController.signal,
       });
 
-      if (!response.ok) {
-        const err = await response.json();
-        setError(err.error || "Download failed");
+      if (!startResponse.ok) {
+        const err = await startResponse.json();
+        setError(err.error || "Failed to start download");
         setDownloading(false);
         setIsFetchingFromSource(false);
         return;
       }
 
-      // Now we're receiving data from server
-      setIsFetchingFromSource(false);
-      setDownloadMessage("Receiving file...");
+      const { jobId } = await startResponse.json();
 
-      const contentDisposition = response.headers.get("content-disposition");
-      const filenameMatch = contentDisposition?.match(/filename="?(.+)"?/);
-      const filename = filenameMatch?.[1] || "download";
+      // Step 2: Connect to SSE for progress updates
+      const eventSource = new EventSource(`/api/tools/url-downloader/progress/${jobId}`);
 
-      const contentLength = response.headers.get("content-length");
-      const total = contentLength ? parseInt(contentLength, 10) : 0;
+      eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
 
-      const reader = response.body?.getReader();
-      if (!reader) {
-        setError("Failed to read response");
-        setDownloading(false);
-        return;
-      }
+        if (data.type === "progress") {
+          setDownloadProgress(data.progress);
+          setDownloadMessage(data.message || "Downloading...");
+        } else if (data.type === "status") {
+          setDownloadMessage(data.message || "Processing...");
+        } else if (data.type === "complete") {
+          eventSource.close();
+          setDownloadProgress(100);
+          setDownloadMessage("Download complete! Fetching file...");
+          setIsFetchingFromSource(false);
 
-      const chunks: Uint8Array[] = [];
-      let receivedLength = 0;
+          // Step 3: Fetch the completed file
+          fetch(`/api/tools/url-downloader/file/${jobId}`)
+            .then(res => res.blob())
+            .then(blob => {
+              const blobUrl = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = blobUrl;
+              a.download = data.filename || "download";
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(blobUrl);
+              setDownloadMessage("Done!");
+            })
+            .catch(() => {
+              setError("Failed to fetch downloaded file");
+            })
+            .finally(() => {
+              setDownloading(false);
+              setTimeout(() => setDownloadProgress(0), 3000);
+            });
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        chunks.push(value);
-        receivedLength += value.length;
-
-        if (total > 0) {
-          const percent = (receivedLength / total) * 100;
-          setDownloadProgress(percent);
-
-          if (percent < 25) setDownloadMessage("Receiving file...");
-          else if (percent < 50) setDownloadMessage("Receiving file...");
-          else if (percent < 75) setDownloadMessage("Receiving file...");
-          else if (percent < 95) setDownloadMessage("Almost done...");
-          else setDownloadMessage("Finalizing...");
-        } else {
-          setDownloadMessage("Receiving file...");
+        } else if (data.type === "error") {
+          eventSource.close();
+          setError(data.error || "Download failed");
+          setDownloading(false);
+          setIsFetchingFromSource(false);
         }
-      }
+      };
 
-      const blob = new Blob(chunks as BlobPart[]);
-      const blobUrl = URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
-
-      setDownloadProgress(100);
-      setDownloadMessage("Download complete!");
+      eventSource.onerror = () => {
+        eventSource.close();
+        setError("Connection lost");
+        setDownloading(false);
+        setIsFetchingFromSource(false);
+      };
 
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
-        setError("Download cancelled");
-      } else {
-        setError("Download failed - try again");
-      }
-    } finally {
+      setError("Download failed - try again");
       setDownloading(false);
       setIsFetchingFromSource(false);
-      abortControllerRef.current = null;
-      setTimeout(() => {
-        setDownloadProgress(0);
-      }, 3000);
     }
-  }, [url, selectedFormat, convertToMp3, downloading]);
+  }, [url, selectedFormat, downloading]);
 
   const currentFormats = formats ? (
     selectedMediaType === "video+audio" ? (formats.videoAndAudio || []) :
