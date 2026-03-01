@@ -189,7 +189,10 @@ export async function GET(
                 resolve(true);
               } else {
                 lastError = stderr.split("\n").filter(l => l.trim() && !l.includes("[debug]")).pop() || `Exit code ${code}`;
-                console.log(`[yt-dlp] Format selector "${formatSelector}" failed:`, lastError);
+                // Only log if this is the last format selector to try (not a fallback attempt)
+                if (formatSelector === formatSelectors[formatSelectors.length - 1]) {
+                  console.log(`[yt-dlp] Download failed:`, lastError);
+                }
                 resolve(false);
               }
             });
