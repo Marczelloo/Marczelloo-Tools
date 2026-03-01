@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { Cloud, Film } from "lucide-react";
+import { useCallback, useRef, useState, useEffect } from "react";
+import { Cloud, FileVideo } from "lucide-react";
 
 interface TactileDropzoneProps {
   onFileSelect: (file: File) => void;
@@ -12,10 +12,31 @@ interface TactileDropzoneProps {
 }
 
 function formatSize(bytes: number): string {
-  if (bytes === 0) return "0 B";
+  if (!bytes || bytes === 0) return "0 B";
   const units = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+}
+
+/**
+ * Sanitize filename by removing HTTP header artifacts
+ */
+function sanitizeFilename(filename: string): string {
+  if (!filename) return "Unknown";
+
+  let clean = filename;
+
+  // Remove patterns like "_; filename*=" or "; filename="
+  clean = clean.split(/_;?\s*filename/i)[0] ?? clean;
+  clean = clean.split(/;\s*filename/i)[0] ?? clean;
+
+  // Remove UTF-8 prefix patterns
+  clean = clean.replace(/UTF-8''/i, "");
+
+  // Trim whitespace and trailing special characters
+  clean = clean.trim().replace(/[_;,\s]+$/, "");
+
+  return clean || "Unknown";
 }
 
 export function TactileDropzone({
@@ -28,6 +49,13 @@ export function TactileDropzone({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Reset input when currentFile is cleared (allows re-selecting same file)
+  useEffect(() => {
+    if (!currentFile && fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, [currentFile]);
 
   const handleClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -116,9 +144,11 @@ export function TactileDropzone({
 
       {currentFile ? (
         <div className="flex items-center justify-center gap-3">
-          <Film className="w-4 h-4 text-zinc-400" />
-          <div>
-            <p className="text-white font-medium">{currentFile.name}</p>
+          <FileVideo className="w-5 h-5 text-zinc-400 flex-shrink-0" />
+          <div className="min-w-0 text-center">
+            <p className="text-white font-medium truncate max-w-xs" title={sanitizeFilename(currentFile.name)}>
+              {sanitizeFilename(currentFile.name)}
+            </p>
             <p id={descriptionId} className="text-sm text-zinc-500 mt-0.5">{formatSize(currentFile.size)}</p>
           </div>
         </div>

@@ -159,7 +159,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Run conversion
     const result = await runFFmpeg(ffmpegArgs, {
       timeout: 2 * 60 * 1000, // 2 minutes max for images
-      workDir: "/app",
     });
 
     if (!result.success) {

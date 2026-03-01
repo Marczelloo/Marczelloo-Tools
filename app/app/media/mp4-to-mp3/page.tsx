@@ -32,10 +32,33 @@ interface ConversionResult {
 // ============================================================================
 
 function formatSize(bytes: number): string {
-  if (bytes === 0) return "0 B";
+  if (!bytes || bytes === 0) return "0 B";
   const units = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+}
+
+/**
+ * Sanitize filename by removing HTTP header artifacts
+ * Handles cases like: "file.mp4_; filename_=UTF-8''file.mp4"
+ */
+function sanitizeFilename(filename: string): string {
+  if (!filename) return "Unknown";
+
+  // Remove common HTTP header artifacts
+  let clean = filename;
+
+  // Remove patterns like "_; filename*=" or "; filename="
+  clean = clean.split(/_;?\s*filename/i)[0] ?? clean;
+  clean = clean.split(/;\s*filename/i)[0] ?? clean;
+
+  // Remove UTF-8 prefix patterns
+  clean = clean.replace(/UTF-8''/i, "");
+
+  // Trim whitespace and trailing special characters
+  clean = clean.trim().replace(/[_;,\s]+$/, "");
+
+  return clean || "Unknown";
 }
 
 // ============================================================================
@@ -157,9 +180,11 @@ function Mp4ToMp3Inner(): React.JSX.Element {
                 </legend>
                 <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
                   <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-zinc-500">Original</p>
-                      <p className="text-white font-medium font-mono">{result.input.filename}</p>
+                      <p className="text-white font-medium font-mono truncate" title={sanitizeFilename(result.input.filename)}>
+                        {sanitizeFilename(result.input.filename)}
+                      </p>
                     </div>
                     <div>
                       <p className="text-zinc-500">Size</p>
@@ -192,8 +217,9 @@ function Mp4ToMp3Inner(): React.JSX.Element {
                   setFile(null);
                   setResult(null);
                   setError(null);
+                  setLoading(false);
                 } : handleConvert}
-                disabled={!file || (loading && !result)}
+                disabled={!file || loading}
                 loading={loading && !result}
                 variant={result ? "secondary" : "primary"}
                 fullWidth
@@ -208,6 +234,7 @@ function Mp4ToMp3Inner(): React.JSX.Element {
                     setFile(null);
                     setResult(null);
                     setError(null);
+                    setLoading(false);
                   }}
                   disabled={loading}
                 >

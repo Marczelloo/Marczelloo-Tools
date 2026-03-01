@@ -5,9 +5,10 @@
  *
  * Flow:
  * 1. Upload MP4 file (validated)
- * 2. Convert to MP3 using FFmpeg
- * 3. Return download URL
- * 4. File auto-deleted after 20 minutes
+ * 2. Extract album art (embedded cover or screenshot at 10%)
+ * 3. Convert to MP3 using FFmpeg with album art embedded
+ * 4. Return download URL
+ * 5. File auto-deleted after 20 minutes
  */
 
 import { type NextRequest, NextResponse } from "next/server";
@@ -18,12 +19,14 @@ import {
 } from "@/lib/security/upload";
 import {
   runFFmpeg,
-  buildFFmpegArgs,
   validateInputFile,
+  getMediaDuration,
 } from "@/lib/ffmpeg/runner";
 import { isToolEnabled } from "@/lib/featureFlags";
 import { join } from "path";
 import { randomUUID } from "crypto";
+import { existsSync } from "fs";
+import { mkdir, stat } from "fs/promises";
 
 // ============================================================================
 // CONFIG
@@ -140,23 +143,84 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    // Ensure output directory exists
+    const outputDir = "./tmp/processed/mp4-to-mp3";
+    if (!existsSync(outputDir)) {
+      await mkdir(outputDir, { recursive: true });
+    }
+
     // Generate output filename
     const outputFilename = `${randomUUID()}.mp3`;
-    const outputPath = join("./tmp/processed/mp4-to-mp3", outputFilename);
+    const outputPath = join(outputDir, outputFilename);
+    const coverPath = join(outputDir, `${randomUUID()}.jpg`);
 
-    // Build FFmpeg arguments for MP4 to MP3 conversion
-    const ffmpegArgs = buildFFmpegArgs({
-      input: uploadResult.filepath,
-      output: outputPath,
-      codec: "libmp3lame",
-      format: "mp3",
-      bitrate: bitrate,
-    });
+    // Get video duration for screenshot timestamp
+    const videoDuration = await getMediaDuration(uploadResult.filepath);
+    const screenshotTime = videoDuration ? Math.max(1, videoDuration * 0.1) : 1;
+
+    // Step 1: Extract cover image (try embedded first, fallback to screenshot)
+    let hasCover = false;
+
+    // Try extracting embedded cover art first
+    const embeddedCoverResult = await runFFmpeg([
+      "-y",
+      "-i", uploadResult.filepath,
+      "-an",
+      "-vcodec", "copy",
+      "-frames:v", "1",
+      coverPath,
+    ], { timeout: 30000 });
+
+    if (embeddedCoverResult.success && existsSync(coverPath)) {
+      hasCover = true;
+    } else {
+      // Fallback: take screenshot at 10% of video duration
+      const screenshotResult = await runFFmpeg([
+        "-y",
+        "-ss", screenshotTime.toString(),
+        "-i", uploadResult.filepath,
+        "-vframes", "1",
+        "-q:v", "2",
+        coverPath,
+      ], { timeout: 30000 });
+
+      hasCover = screenshotResult.success && existsSync(coverPath);
+    }
+
+    // Step 2: Build FFmpeg arguments for MP4 to MP3 conversion
+    // If we have a cover, embed it into the MP3
+    let ffmpegArgs: string[];
+
+    if (hasCover) {
+      ffmpegArgs = [
+        "-y",
+        "-i", uploadResult.filepath,
+        "-i", coverPath,
+        "-c:a", "libmp3lame",
+        "-b:a", bitrate ?? "192k",
+        "-vn",
+        "-id3v2_version", "3",
+        "-metadata:s:v", "title=Album cover",
+        "-metadata:s:v", "comment=Cover (front)",
+        "-map", "0:a:0",
+        "-map", "1:0",
+        outputPath,
+      ];
+    } else {
+      // No cover available, just convert audio
+      ffmpegArgs = [
+        "-y",
+        "-i", uploadResult.filepath,
+        "-c:a", "libmp3lame",
+        "-b:a", bitrate ?? "192k",
+        "-vn",
+        outputPath,
+      ];
+    }
 
     // Run conversion
     const result = await runFFmpeg(ffmpegArgs, {
       timeout: 5 * 60 * 1000, // 5 minutes max
-      workDir: "/app",
     });
 
     if (!result.success) {
@@ -175,6 +239,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    // Get output file size
+    let outputSize = 0;
+    try {
+      const stats = await stat(outputPath);
+      outputSize = stats.size;
+    } catch {
+      // Ignore stat errors
+    }
+
     // Return success with download info
     return NextResponse.json({
       success: true,
@@ -189,6 +262,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           downloadUrl: `/api/download/mp4-to-mp3/${outputFilename}`,
           format: "mp3",
           bitrate: bitrate,
+          hasAlbumArt: hasCover,
+          size: outputSize,
         },
         duration: result.duration,
       },

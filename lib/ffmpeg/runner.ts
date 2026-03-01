@@ -104,7 +104,7 @@ export type ProcessCallback = (process: ChildProcess) => void;
 export const DEFAULT_FFMPEG_CONFIG: FFmpegConfig = {
   timeout: 5 * 60 * 1000, // 5 minutes
   maxOutputSize: 500 * 1024 * 1024, // 500MB
-  workDir: "/app",  // Use /app so relative paths work correctly
+  workDir: process.cwd(), // Use current working directory (works on Windows and Linux/Docker)
   ffmpegPath: FFMPEG_PATH,
   ffprobePath: FFPROBE_PATH,
 };

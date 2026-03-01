@@ -222,7 +222,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Start conversion in background - return ID immediately
     runFFmpeg(ffmpegArgs, {
       timeout: 5 * 60 * 1000,
-      workDir: "/app",
     }, (progress) => {
       // Update progress via SSE
       const progressData = {
