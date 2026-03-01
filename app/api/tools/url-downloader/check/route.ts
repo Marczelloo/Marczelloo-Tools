@@ -133,16 +133,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const formats = ytdlpResult.info.formats;
 
       // Helper functions to detect video/audio presence
-      const hasVideo = (f: typeof formats[0]) => f.has_video || (f.vcodec && f.vcodec !== "none");
-      const hasAudio = (f: typeof formats[0]) => f.has_audio || (f.acodec && f.acodec !== "none");
+      const hasVideo = (f: typeof formats[0]) =>
+        f.has_video || (f.vcodec && f.vcodec !== "none") || f.height || f.width;
+      const hasAudio = (f: typeof formats[0]) =>
+        f.has_audio || (f.acodec && f.acodec !== "none") || f.abr;
       const supportedVideoExt = ["mp4", "webm", "mkv", "mov"];
       const supportedAudioExt = ["mp3", "m4a", "webm", "opus", "aac"];
 
       // Video + Audio: Include video formats (yt-dlp will merge audio if needed)
+      // Be more inclusive - check for video by height, width, vcodec, or has_video
       const videoAndAudio = formats.filter(f =>
         supportedVideoExt.includes(f.ext) &&
-        hasVideo(f) &&
-        f.height
+        hasVideo(f)
       );
 
       // Audio Only: Pure audio formats
@@ -152,12 +154,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         hasAudio(f)
       );
 
-      // Video Only (No Audio): Edge cases
+      // Video Only (No Audio): Edge cases - video without audio
       const videoOnly = formats.filter(f =>
         supportedVideoExt.includes(f.ext) &&
         hasVideo(f) &&
-        !hasAudio(f) &&
-        !f.height
+        !hasAudio(f)
       );
 
       return NextResponse.json({
