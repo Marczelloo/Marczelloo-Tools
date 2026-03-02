@@ -76,26 +76,105 @@ const QUALITY_PRESETS = {
 
 type QualityPreset = keyof typeof QUALITY_PRESETS;
 
+// Codec configuration for different output formats
+const CODEC_CONFIG = {
+  mp4: {
+    videoCodec: "libx264",
+    audioCodec: "aac",
+    extraArgs: ["-movflags", "+faststart"],
+  },
+  webm: {
+    videoCodec: "libvpx-vp9",
+    audioCodec: "libopus",
+    extraArgs: ["-row-mt", "1"],
+  },
+} as const;
+
+// Simple mode presets
+const SIMPLE_PRESETS = {
+  smallest: {
+    crf: 28,
+    preset: "faster",
+    maxBitrate: "1M",
+    audioBitrate: "96k",
+    label: "Smallest File",
+  },
+  balanced: {
+    crf: 23,
+    preset: "medium",
+    maxBitrate: "5M",
+    audioBitrate: "128k",
+    label: "Balanced",
+  },
+  best: {
+    crf: 18,
+    preset: "slow",
+    maxBitrate: "10M",
+    audioBitrate: "192k",
+    label: "Best Quality",
+  },
+} as const;
+
+type SimplePreset = keyof typeof SIMPLE_PRESETS;
+
+// Resolution presets
+const RESOLUTION_PRESETS: Record<string, { width: number; height: number }> = {
+  "4k": { width: 3840, height: 2160 },
+  "1080p": { width: 1920, height: 1080 },
+  "720p": { width: 1280, height: 720 },
+  "480p": { width: 854, height: 480 },
+  "360p": { width: 640, height: 360 },
+};
+
 // ============================================================================
 // HELPER: PARSE FORM DATA
 // ============================================================================
 
 async function parseFormData(request: NextRequest): Promise<{
   file: File | null;
+  mode: "simple" | "advanced";
+  // Simple mode
+  preset?: SimplePreset;
+  // Advanced mode
   quality?: QualityPreset;
   bitrate?: string;
-  outputFormat?: string;
+  compressionLevel?: number;
+  fps?: number;
+  resolution?: string;
+  twoPass?: boolean;
+  // Common
+  outputFormat?: "mp4" | "webm";
 }> {
   const formData = await request.formData();
   const file = formData.get("file");
+  const mode = formData.get("mode")?.toString() as "simple" | "advanced" | undefined;
+
+  // Simple mode params
+  const preset = formData.get("preset")?.toString() as SimplePreset | undefined;
+
+  // Advanced mode params
   const quality = formData.get("quality")?.toString() as QualityPreset | undefined;
   const bitrate = formData.get("bitrate")?.toString();
-  const outputFormat = formData.get("outputFormat")?.toString();
+  const compressionLevelStr = formData.get("compressionLevel")?.toString();
+  const fpsStr = formData.get("fps")?.toString();
+  const resolution = formData.get("resolution")?.toString();
+  const twoPassStr = formData.get("twoPass")?.toString();
+
+  // Common params
+  const outputFormat = formData.get("outputFormat")?.toString() as "mp4" | "webm" | undefined;
 
   return {
     file: file instanceof File ? file : null,
-    quality: quality && QUALITY_PRESETS[quality] ? quality : "medium",
+    mode: mode === "advanced" ? "advanced" : "simple",
+    preset: preset && SIMPLE_PRESETS[preset] ? preset : "balanced",
+    quality: quality && QUALITY_PRESETS[quality] ? quality : undefined,
     bitrate: bitrate && /^\d+[kMG]?$/.test(bitrate) ? bitrate : undefined,
+    compressionLevel: compressionLevelStr
+      ? Math.min(100, Math.max(0, parseInt(compressionLevelStr, 10)))
+      : undefined,
+    fps: fpsStr ? parseInt(fpsStr, 10) : undefined,
+    resolution: resolution && RESOLUTION_PRESETS[resolution] ? resolution : undefined,
+    twoPass: twoPassStr === "true",
     outputFormat: outputFormat && ["mp4", "webm"].includes(outputFormat)
       ? outputFormat
       : "mp4",
