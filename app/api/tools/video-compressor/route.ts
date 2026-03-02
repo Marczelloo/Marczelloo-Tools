@@ -367,7 +367,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const { file, quality, bitrate, outputFormat } = await parseFormData(request);
+    const {
+      file,
+      mode,
+      preset,
+      quality,
+      bitrate,
+      compressionLevel,
+      fps,
+      resolution,
+      twoPass,
+      outputFormat,
+    } = await parseFormData(request);
 
     if (!file) {
       return NextResponse.json(
@@ -470,15 +481,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       codec: videoStream.codec_name,
     };
 
-    // Get quality preset
-    const preset = QUALITY_PRESETS[quality ?? "medium"];
-    const targetBitrate = bitrate ?? preset.maxBitrate;
+    // Get quality preset for estimation
+    const qualityPreset = QUALITY_PRESETS[quality ?? "medium"];
+    const targetBitrate = bitrate ?? qualityPreset.maxBitrate;
 
     // Estimate output size
     const estimatedSize = estimateCompressedSize(
       videoInfo,
       targetBitrate,
-      preset.audioBitrate
+      qualityPreset.audioBitrate
     );
 
     // Ensure output directory exists
@@ -492,36 +503,81 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const outputFilename = `${randomUUID()}.${format}`;
     const outputPath = join(outputDir, outputFilename);
 
-    // Build FFmpeg arguments
-    const ffmpegArgs: string[] = [
-      "-y",
-      "-i",
-      uploadResult.filepath,
-      "-c:v",
-      "libx264",
-      "-crf",
-      preset.crf.toString(),
-      "-preset",
-      preset.preset,
-      "-maxrate",
-      targetBitrate,
-      "-bufsize",
-      (parseInt(targetBitrate) * 2).toString() + (targetBitrate.includes("M") ? "M" : "k"),
-      "-c:a",
-      "aac",
-      "-b:a",
-      preset.audioBitrate,
-      "-movflags",
-      "+faststart",
-      "-f",
-      format,
+    // Build FFmpeg arguments using the new builder
+    const ffmpegArgs = buildFFmpegArgs({
+      inputPath: uploadResult.filepath,
       outputPath,
-    ];
+      outputFormat: outputFormat as "mp4" | "webm",
+      videoInfo,
+      preset: mode === "simple" ? preset : undefined,
+      quality,
+      bitrate,
+      compressionLevel,
+      fps,
+      resolution,
+      twoPass,
+    });
 
     // Run compression
-    const result = await runFFmpeg(ffmpegArgs, {
-      timeout: 5 * 60 * 1000, // 5 minutes
-    });
+    let result: { success: boolean; timedOut: boolean; error?: string; stderr: string; duration: number };
+
+    if (twoPass) {
+      // First pass (analyzes video, no output)
+      // Use platform-specific null device
+      const nullDevice = process.platform === "win32" ? "NUL" : "/dev/null";
+      const pass1Args = [...ffmpegArgs.slice(0, -1), "-pass", "1", "-f", outputFormat ?? "mp4", nullDevice];
+      const pass1Result = await runFFmpeg(pass1Args, {
+        timeout: 5 * 60 * 1000,
+        workDir: "./tmp/ffmpeg",
+      });
+
+      if (!pass1Result.success) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "COMPRESSION_FAILED",
+              message: pass1Result.timedOut
+                ? "First pass timed out"
+                : pass1Result.error || "FFmpeg first pass failed",
+              details: pass1Result.stderr.slice(-500),
+            },
+          },
+          { status: 500 }
+        );
+      }
+
+      // Second pass (actual encoding)
+      const pass2Args = [...ffmpegArgs.slice(0, -1), "-pass", "2", outputPath];
+      const pass2Result = await runFFmpeg(pass2Args, {
+        timeout: 5 * 60 * 1000,
+        workDir: "./tmp/ffmpeg",
+      });
+
+      if (!pass2Result.success) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "COMPRESSION_FAILED",
+              message: pass2Result.timedOut
+                ? "Second pass timed out"
+                : pass2Result.error || "FFmpeg second pass failed",
+              details: pass2Result.stderr.slice(-500),
+            },
+          },
+          { status: 500 }
+        );
+      }
+
+      result = pass2Result;
+    } else {
+      // Single pass encoding
+      result = await runFFmpeg(ffmpegArgs, {
+        timeout: 5 * 60 * 1000,
+        workDir: "./tmp/ffmpeg",
+      });
+    }
 
     if (!result.success) {
       return NextResponse.json(
@@ -532,6 +588,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             message: result.timedOut
               ? "Compression timed out"
               : result.error || "FFmpeg compression failed",
+            details: result.stderr.slice(-500), // Include stderr for debugging
           },
         },
         { status: 500 }
@@ -562,9 +619,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             codec: videoInfo.codec,
           },
           settings: {
-            quality: quality,
+            mode,
+            preset: mode === "simple" ? preset : undefined,
+            quality: mode === "advanced" ? quality : undefined,
             bitrate: targetBitrate,
-            preset: preset.preset,
+            compressionLevel,
+            fps,
+            resolution,
+            twoPass,
           },
           output: {
             filename: outputFilename,
