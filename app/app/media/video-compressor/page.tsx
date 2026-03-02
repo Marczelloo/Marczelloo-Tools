@@ -96,15 +96,29 @@ function estimateSize(originalSize: number, preset: SimplePreset): number {
 function VideoCompressorInner(): React.JSX.Element {
   const { tool } = useTool();
 
+  // Mode and file
+  const [mode, setMode] = useState<CompressionMode>("simple");
   const [file, setFile] = useState<File | null>(null);
-  const [quality, setQuality] = useState<QualityPreset>("medium");
+
+  // Simple mode state
+  const [preset, setPreset] = useState<SimplePreset>("balanced");
+
+  // Advanced mode state
+  const [compressionLevel, setCompressionLevel] = useState(50);
+  const [fps, setFps] = useState("original");
   const [bitrate, setBitrate] = useState("5M");
+  const [resolution, setResolution] = useState("original");
+
+  // Common state
   const [outputFormat, setOutputFormat] = useState("mp4");
+  const [twoPass, setTwoPass] = useState(false);
+
+  // UI state
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CompressionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const estimatedSize = file ? estimateSize(file.size, quality) : 0;
+  const estimatedSize = file ? estimateSize(file.size, preset) : 0;
   const compressionRatio = file ? ((1 - estimatedSize / file.size) * 100).toFixed(0) : "0";
 
   const handleCompress = useCallback(async () => {
@@ -115,9 +129,24 @@ function VideoCompressorInner(): React.JSX.Element {
 
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("quality", quality);
-    formData.append("bitrate", bitrate);
+    formData.append("mode", mode);
     formData.append("outputFormat", outputFormat);
+
+    if (mode === "simple") {
+      formData.append("preset", preset);
+    } else {
+      formData.append("compressionLevel", compressionLevel.toString());
+      formData.append("bitrate", bitrate);
+      if (fps !== "original") {
+        formData.append("fps", fps);
+      }
+      if (resolution !== "original") {
+        formData.append("resolution", resolution);
+      }
+      if (twoPass) {
+        formData.append("twoPass", "true");
+      }
+    }
 
     try {
       const response = await fetch("/api/tools/video-compressor", {
@@ -139,7 +168,7 @@ function VideoCompressorInner(): React.JSX.Element {
       setError("Failed to connect to server");
       setLoading(false);
     }
-  }, [file, quality, bitrate, outputFormat]);
+  }, [file, mode, preset, compressionLevel, bitrate, fps, resolution, outputFormat, twoPass]);
 
   return (
     <div className="min-h-full">
