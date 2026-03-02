@@ -221,6 +221,127 @@ function estimateCompressedSize(
 }
 
 // ============================================================================
+// HELPER: FFMPEG COMMAND BUILDER
+// ============================================================================
+
+/**
+ * Map compression level (0-100) to CRF (51-0)
+ * 0 = no compression (CRF 51, worst quality)
+ * 100 = max compression (CRF 0, best quality, lossless)
+ */
+function compressionLevelToCrf(level: number): number {
+  // Invert: higher compression level = lower CRF = better quality
+  return Math.round(51 - (level / 100) * 51);
+}
+
+/**
+ * Build FFmpeg arguments based on mode and settings
+ */
+function buildFFmpegArgs(options: {
+  inputPath: string;
+  outputPath: string;
+  outputFormat: "mp4" | "webm";
+  videoInfo: VideoInfo;
+  // Simple mode
+  preset?: SimplePreset;
+  // Advanced mode
+  quality?: QualityPreset;
+  bitrate?: string;
+  compressionLevel?: number;
+  fps?: number;
+  resolution?: string;
+  twoPass?: boolean;
+}): string[] {
+  const {
+    inputPath,
+    outputPath,
+    outputFormat,
+    videoInfo,
+    preset,
+    quality,
+    bitrate,
+    compressionLevel,
+    fps,
+    resolution,
+    twoPass,
+  } = options;
+
+  const codecConfig = CODEC_CONFIG[outputFormat];
+  const args: string[] = ["-y", "-i", inputPath];
+
+  // Determine CRF and preset
+  let crf: number;
+  let presetName: string;
+  let targetBitrate: string;
+  let audioBitrate: string;
+
+  if (preset && SIMPLE_PRESETS[preset]) {
+    // Simple mode
+    const p = SIMPLE_PRESETS[preset];
+    crf = p.crf;
+    presetName = p.preset;
+    targetBitrate = p.maxBitrate;
+    audioBitrate = p.audioBitrate;
+  } else {
+    // Advanced mode or backward compatibility
+    const qualityPreset = quality && QUALITY_PRESETS[quality]
+      ? QUALITY_PRESETS[quality]
+      : QUALITY_PRESETS.medium;
+    crf = compressionLevel !== undefined
+      ? compressionLevelToCrf(compressionLevel)
+      : qualityPreset.crf;
+    presetName = qualityPreset.preset;
+    targetBitrate = bitrate ?? qualityPreset.maxBitrate;
+    audioBitrate = qualityPreset.audioBitrate;
+  }
+
+  // Video codec
+  args.push("-c:v", codecConfig.videoCodec);
+  args.push("-crf", crf.toString());
+  args.push("-preset", presetName);
+
+  // Bitrate control
+  args.push("-maxrate", targetBitrate);
+  const bufsizeUnit = targetBitrate.includes("M") ? "M" : "k";
+  const bufsizeValue = parseInt(targetBitrate) * 2;
+  args.push("-bufsize", `${bufsizeValue}${bufsizeUnit}`);
+
+  // FPS
+  if (fps && [24, 30, 60].includes(fps)) {
+    args.push("-r", fps.toString());
+  }
+
+  // Resolution
+  if (resolution && RESOLUTION_PRESETS[resolution]) {
+    const res = RESOLUTION_PRESETS[resolution];
+    // Only scale down, not up
+    if (videoInfo.width && videoInfo.height) {
+      if (res.width < videoInfo.width || res.height < videoInfo.height) {
+        args.push("-vf", `scale=${res.width}:${res.height}:force_original_aspect_ratio=decrease`);
+      }
+    }
+  }
+
+  // Audio codec
+  args.push("-c:a", codecConfig.audioCodec);
+  args.push("-b:a", audioBitrate);
+
+  // Format-specific args
+  args.push(...codecConfig.extraArgs);
+
+  // Pixel format for compatibility
+  args.push("-pix_fmt", "yuv420p");
+
+  // Output format
+  args.push("-f", outputFormat);
+
+  // Output file
+  args.push(outputPath);
+
+  return args;
+}
+
+// ============================================================================
 // POST - COMPRESS VIDEO
 // ============================================================================
 
