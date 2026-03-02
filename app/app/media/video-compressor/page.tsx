@@ -7,49 +7,66 @@ import type { ToolDefinition } from "@/lib/featureFlags";
 import { TactileDropzone } from "@/components/tool-ui/TactileDropzone";
 import { TactileFormatGrid, type FormatOption } from "@/components/tool-ui/TactileFormatGrid";
 import { TactileButton } from "@/components/tool-ui/TactileButton";
+import { Tabs } from "@/components/ui/tabs";
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-type QualityPreset = "low" | "medium" | "high";
+type CompressionMode = "simple" | "advanced";
+type SimplePreset = "smallest" | "balanced" | "best";
 
 interface CompressionResult {
   input: {
     filename: string;
     size: number;
+    duration?: number;
+    resolution?: string;
   };
   output: {
     filename: string;
     downloadUrl: string;
     format: string;
     size: number;
+    estimatedSize?: number;
   };
   compressionRatio: string;
   duration: number;
 }
 
 // ============================================================================
-// QUALITY OPTIONS
+// OPTIONS
 // ============================================================================
 
-const QUALITY_OPTIONS: readonly FormatOption[] = [
-  { value: "low", label: "Low", desc: "Smallest file" },
-  { value: "medium", label: "Medium", desc: "Balanced" },
-  { value: "high", label: "High", desc: "Best quality" },
+const COMPRESSION_MODES = [
+  { value: "simple", label: "Simple" },
+  { value: "advanced", label: "Advanced" },
 ] as const;
 
-const BITRATE_OPTIONS: readonly FormatOption[] = [
-  { value: "1M", label: "1 Mbps" },
-  { value: "2M", label: "2 Mbps" },
-  { value: "5M", label: "5 Mbps" },
-  { value: "8M", label: "8 Mbps" },
-  { value: "10M", label: "10 Mbps" },
+const SIMPLE_PRESETS: readonly FormatOption[] = [
+  { value: "smallest", label: "Smallest", desc: "1 Mbps" },
+  { value: "balanced", label: "Balanced", desc: "5 Mbps" },
+  { value: "best", label: "Best Quality", desc: "10 Mbps" },
+] as const;
+
+const FPS_OPTIONS: readonly FormatOption[] = [
+  { value: "original", label: "Original" },
+  { value: "24", label: "24 fps" },
+  { value: "30", label: "30 fps" },
+  { value: "60", label: "60 fps" },
+] as const;
+
+const RESOLUTION_OPTIONS: readonly FormatOption[] = [
+  { value: "original", label: "Original" },
+  { value: "1080p", label: "1080p" },
+  { value: "720p", label: "720p" },
+  { value: "480p", label: "480p" },
+  { value: "360p", label: "360p" },
 ] as const;
 
 const OUTPUT_FORMATS: readonly FormatOption[] = [
-  { value: "mp4", label: "MP4", desc: "Universal" },
-  { value: "webm", label: "WebM", desc: "Web optimized" },
+  { value: "mp4", label: "MP4", desc: "H.264" },
+  { value: "webm", label: "WebM", desc: "VP9" },
 ] as const;
 
 // ============================================================================
@@ -63,13 +80,13 @@ function formatSize(bytes: number): string {
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
 }
 
-function estimateSize(originalSize: number, quality: QualityPreset): number {
-  const ratios: Record<QualityPreset, number> = {
-    low: 0.3,
-    medium: 0.5,
-    high: 0.7,
+function estimateSize(originalSize: number, preset: SimplePreset): number {
+  const ratios: Record<SimplePreset, number> = {
+    smallest: 0.2,
+    balanced: 0.4,
+    best: 0.6,
   };
-  return Math.round(originalSize * ratios[quality]);
+  return Math.round(originalSize * ratios[preset]);
 }
 
 // ============================================================================
