@@ -50,23 +50,24 @@ const SIMPLE_PRESETS: readonly FormatOption[] = [
 ] as const;
 
 const FPS_OPTIONS: readonly FormatOption[] = [
-  { value: "original", label: "Original" },
-  { value: "24", label: "24 fps" },
-  { value: "30", label: "30 fps" },
-  { value: "60", label: "60 fps" },
+  { value: "original", label: "Original", desc: "Keep" },
+  { value: "24", label: "24 fps", desc: "Cinema" },
+  { value: "30", label: "30 fps", desc: "Standard" },
+  { value: "60", label: "60 fps", desc: "Smooth" },
 ] as const;
 
 const RESOLUTION_OPTIONS: readonly FormatOption[] = [
-  { value: "original", label: "Original" },
-  { value: "1080p", label: "1080p" },
-  { value: "720p", label: "720p" },
-  { value: "480p", label: "480p" },
-  { value: "360p", label: "360p" },
+  { value: "original", label: "Original", desc: "Keep" },
+  { value: "1080p", label: "1080p", desc: "Full HD" },
+  { value: "720p", label: "720p", desc: "HD" },
+  { value: "480p", label: "480p", desc: "SD" },
+  { value: "360p", label: "360p", desc: "Low" },
 ] as const;
 
 const OUTPUT_FORMATS: readonly FormatOption[] = [
   { value: "mp4", label: "MP4", desc: "H.264" },
   { value: "webm", label: "WebM", desc: "VP9" },
+  { value: "mkv", label: "MKV", desc: "H.265" },
 ] as const;
 
 // ============================================================================
@@ -181,7 +182,7 @@ function VideoCompressorInner(): React.JSX.Element {
       <div className="p-6">
         <Container size="md" className="max-w-2xl mx-auto">
           <Surface variant="elevated" padding="lg">
-            {/* File Upload */}
+            {/* Step 1: File Upload */}
             <fieldset className="mb-6">
               <legend className="text-lg font-semibold text-white mb-4">
                 <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
@@ -202,42 +203,136 @@ function VideoCompressorInner(): React.JSX.Element {
               />
             </fieldset>
 
-            {/* Quality Settings */}
+            {/* Step 2: Mode Tabs */}
             <fieldset className="mb-6">
               <legend className="text-lg font-semibold text-white mb-4">
                 <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
                   2
                 </span>
-                Quality Preset
+                Compression Mode
               </legend>
-              <TactileFormatGrid
-                options={QUALITY_OPTIONS}
-                value={quality}
-                onChange={(v) => setQuality(v as QualityPreset)}
+              <Tabs
+                value={mode}
+                onValueChange={(v) => setMode(v as CompressionMode)}
+                tabs={COMPRESSION_MODES}
               />
             </fieldset>
 
-            {/* Bitrate Selection */}
-            <fieldset className="mb-6">
-              <legend className="text-lg font-semibold text-white mb-4">
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
-                  3
-                </span>
-                Target Bitrate
-              </legend>
-              <TactileFormatGrid
-                options={BITRATE_OPTIONS}
-                value={bitrate}
-                onChange={setBitrate}
-                columns={5}
-              />
-            </fieldset>
+            {/* Step 3: Mode-Specific Options */}
+            {mode === "simple" && (
+              <fieldset className="mb-6">
+                <legend className="text-lg font-semibold text-white mb-4">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
+                    3
+                  </span>
+                  Quality Preset
+                </legend>
+                <TactileFormatGrid
+                  options={SIMPLE_PRESETS}
+                  value={preset}
+                  onChange={(v) => setPreset(v as SimplePreset)}
+                />
+              </fieldset>
+            )}
 
-            {/* Output Format */}
+            {mode === "advanced" && (
+              <>
+                {/* Compression Level Slider */}
+                <fieldset className="mb-6">
+                  <legend className="text-lg font-semibold text-white mb-4">
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
+                      3
+                    </span>
+                    Compression Level
+                  </legend>
+                  <div className="space-y-3">
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={compressionLevel}
+                      onChange={(e) => setCompressionLevel(parseInt(e.target.value, 10))}
+                      className="slider w-full"
+                    />
+                    <div className="flex justify-between text-xs text-zinc-500 font-mono">
+                      <span>Smallest File</span>
+                      <span className="text-white">{compressionLevel}%</span>
+                      <span>Best Quality</span>
+                    </div>
+                  </div>
+                </fieldset>
+
+                {/* Bitrate Input */}
+                <fieldset className="mb-6">
+                  <legend className="text-sm font-semibold text-zinc-400 mb-3">
+                    Target Bitrate
+                  </legend>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="text"
+                      value={bitrate}
+                      onChange={(e) => setBitrate(e.target.value)}
+                      placeholder="e.g., 5M"
+                      className="flex-1 px-4 py-2 bg-zinc-900 border border-white/10 rounded-md text-white font-mono text-sm focus:outline-none focus:border-white/30"
+                    />
+                    <span className="text-zinc-500 text-sm">bps</span>
+                  </div>
+                  <p className="text-xs text-zinc-600 mt-2">Examples: 1M (1 Mbps), 5M (5 Mbps), 10M (10 Mbps)</p>
+                </fieldset>
+
+                {/* FPS Selection */}
+                <fieldset className="mb-6">
+                  <legend className="text-sm font-semibold text-zinc-400 mb-3">
+                    Frame Rate
+                  </legend>
+                  <TactileFormatGrid
+                    options={FPS_OPTIONS}
+                    value={fps}
+                    onChange={setFps}
+                    columns={4}
+                  />
+                </fieldset>
+
+                {/* Resolution Selection */}
+                <fieldset className="mb-6">
+                  <legend className="text-sm font-semibold text-zinc-400 mb-3">
+                    Resolution
+                  </legend>
+                  <TactileFormatGrid
+                    options={RESOLUTION_OPTIONS}
+                    value={resolution}
+                    onChange={setResolution}
+                    columns={5}
+                  />
+                </fieldset>
+
+                {/* 2-Pass Encoding Toggle */}
+                <fieldset className="mb-6">
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={twoPass}
+                        onChange={(e) => setTwoPass(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-10 h-6 bg-zinc-800 rounded-full peer-checked:bg-zinc-700 transition-colors" />
+                      <div className="absolute left-1 top-1 w-4 h-4 bg-zinc-500 rounded-full peer-checked:bg-white peer-checked:translate-x-4 transition-all" />
+                    </div>
+                    <div>
+                      <span className="text-sm text-white group-hover:text-zinc-200">2-Pass Encoding</span>
+                      <p className="text-xs text-zinc-500">Better quality at same file size (slower)</p>
+                    </div>
+                  </label>
+                </fieldset>
+              </>
+            )}
+
+            {/* Step 4 (Simple) / Step 4 (Advanced): Output Format */}
             <fieldset className="mb-6">
               <legend className="text-lg font-semibold text-white mb-4">
                 <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
-                  4
+                  {mode === "simple" ? "4" : "4"}
                 </span>
                 Output Format
               </legend>
@@ -245,7 +340,7 @@ function VideoCompressorInner(): React.JSX.Element {
                 options={OUTPUT_FORMATS}
                 value={outputFormat}
                 onChange={setOutputFormat}
-                columns={2}
+                columns={3}
               />
             </fieldset>
 
@@ -276,6 +371,11 @@ function VideoCompressorInner(): React.JSX.Element {
                       </p>
                     </div>
                   </div>
+                  {mode === "simple" && (
+                    <p className="text-xs text-zinc-600 mt-3 text-center">
+                      Based on &quot;{preset}&quot; preset
+                    </p>
+                  )}
                 </div>
               </fieldset>
             )}

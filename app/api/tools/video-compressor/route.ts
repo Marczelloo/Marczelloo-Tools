@@ -263,7 +263,7 @@ function buildFFmpegArgs(options: {
     compressionLevel,
     fps,
     resolution,
-    twoPass,
+    twoPass: _twoPass, // Used in POST handler for 2-pass encoding logic
   } = options;
 
   const codecConfig = CODEC_CONFIG[outputFormat];
