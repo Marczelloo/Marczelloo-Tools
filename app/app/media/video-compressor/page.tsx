@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { PageHeader, Surface, Container } from "@/components/layout";
 import { ToolProvider, useTool } from "@/lib/tool-context";
 import type { ToolDefinition } from "@/lib/featureFlags";
@@ -32,6 +32,14 @@ interface CompressionResult {
   };
   compressionRatio: string;
   duration: number;
+}
+
+interface ProgressState {
+  progress: number;
+  status: string;
+  message: string;
+  speed?: string;
+  time?: string;
 }
 
 // ============================================================================
@@ -82,12 +90,54 @@ function formatSize(bytes: number): string {
 }
 
 function estimateSize(originalSize: number, preset: SimplePreset): number {
+  // More realistic compression ratios based on actual FFmpeg results
+  // These are estimates - actual results vary based on source material
   const ratios: Record<SimplePreset, number> = {
-    smallest: 0.2,
-    balanced: 0.4,
-    best: 0.6,
+    smallest: 0.35,  // CRF 35 + 720p max + 64k audio
+    balanced: 0.5,   // CRF 28 + 1080p max + 128k audio
+    best: 0.75,      // CRF 20 + original resolution + 192k audio
   };
   return Math.round(originalSize * ratios[preset]);
+}
+
+// Advanced mode estimation based on parameters
+function estimateAdvancedSize(
+  originalSize: number,
+  compressionLevel: number,
+  bitrate: string,
+  resolution: string
+): number {
+  // Base ratio from compression level (0-100 maps to 0.2-0.9)
+  // Higher compression level = better quality = larger file
+  let baseRatio = 0.2 + (compressionLevel / 100) * 0.7;
+
+  // Bitrate adjustment
+  // Parse bitrate (e.g., "5M" -> 5, "2500k" -> 2.5)
+  const bitrateMatch = bitrate.match(/^(\d+(?:\.\d+)?)([kMG])?$/i);
+  if (bitrateMatch && bitrateMatch[1]) {
+    const value = parseFloat(bitrateMatch[1]);
+    const unit = (bitrateMatch[2] || "M").toLowerCase();
+    let bitrateMbps = value;
+    if (unit === "k") bitrateMbps = value / 1000;
+    if (unit === "g") bitrateMbps = value * 1000;
+
+    // Lower bitrate = smaller file
+    // 1 Mbps -> 0.3x, 5 Mbps -> 0.5x, 10+ Mbps -> 0.7x
+    const bitrateFactor = Math.min(0.7, Math.max(0.3, bitrateMbps / 10));
+    baseRatio *= bitrateFactor;
+  }
+
+  // Resolution adjustment
+  const resolutionFactors: Record<string, number> = {
+    original: 1.0,
+    "1080p": 0.9,
+    "720p": 0.6,
+    "480p": 0.4,
+    "360p": 0.25,
+  };
+  baseRatio *= resolutionFactors[resolution] || 1.0;
+
+  return Math.round(originalSize * baseRatio);
 }
 
 // ============================================================================
@@ -118,15 +168,34 @@ function VideoCompressorInner(): React.JSX.Element {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CompressionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<ProgressState | null>(null);
 
-  const estimatedSize = file ? estimateSize(file.size, preset) : 0;
+  // SSE connection ref
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  // Calculate estimated size based on mode
+  const estimatedSize = file
+    ? mode === "simple"
+      ? estimateSize(file.size, preset)
+      : estimateAdvancedSize(file.size, compressionLevel, bitrate, resolution)
+    : 0;
   const compressionRatio = file ? ((1 - estimatedSize / file.size) * 100).toFixed(0) : "0";
+
+  // Cleanup SSE on unmount
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+    };
+  }, []);
 
   const handleCompress = useCallback(async () => {
     if (!file) return;
 
     setLoading(true);
     setError(null);
+    setProgress({ progress: 0, status: "starting", message: "Initializing compression..." });
 
     const formData = new FormData();
     formData.append("file", file);
@@ -160,14 +229,17 @@ function VideoCompressorInner(): React.JSX.Element {
       if (!data.success) {
         setError(data.error?.message ?? "Compression failed");
         setLoading(false);
+        setProgress(null);
         return;
       }
 
       setResult(data.compression);
       setLoading(false);
+      setProgress({ progress: 100, status: "completed", message: "Done!" });
     } catch {
       setError("Failed to connect to server");
       setLoading(false);
+      setProgress(null);
     }
   }, [file, mode, preset, compressionLevel, bitrate, fps, resolution, outputFormat, twoPass]);
 
@@ -371,9 +443,42 @@ function VideoCompressorInner(): React.JSX.Element {
                       </p>
                     </div>
                   </div>
+                  {mode === "advanced" && (
+                    <p className="text-xs text-zinc-600 mt-3 text-center">
+                      Based on current settings (compression: {compressionLevel}%, bitrate: {bitrate}, resolution: {resolution})
+                    </p>
+                  )}
                   {mode === "simple" && (
                     <p className="text-xs text-zinc-600 mt-3 text-center">
                       Based on &quot;{preset}&quot; preset
+                    </p>
+                  )}
+                </div>
+              </fieldset>
+            )}
+
+            {/* Progress Bar */}
+            {loading && progress && (
+              <fieldset className="mb-6">
+                <legend className="text-sm font-semibold text-zinc-400 mb-3">
+                  Compression Progress
+                </legend>
+                <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
+                  <div className="mb-3">
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-zinc-400">{progress.message}</span>
+                      <span className="text-white font-mono">{Math.round(progress.progress)}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-white transition-all duration-300 ease-out"
+                        style={{ width: `${progress.progress}%` }}
+                      />
+                    </div>
+                  </div>
+                  {progress.speed && (
+                    <p className="text-xs text-zinc-500 text-center">
+                      Speed: {progress.speed}
                     </p>
                   )}
                 </div>
