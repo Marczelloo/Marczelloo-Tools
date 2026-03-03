@@ -518,6 +518,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       twoPass,
     });
 
+    // Debug: log the FFmpeg command
+    console.log("[Video Compressor] Mode:", mode);
+    console.log("[Video Compressor] Preset:", preset);
+    console.log("[Video Compressor] Output format:", outputFormat);
+    console.log("[Video Compressor] FFmpeg args:", ffmpegArgs.join(" "));
+
     // Run compression
     let result: { success: boolean; timedOut: boolean; error?: string; stderr: string; duration: number };
 
@@ -528,7 +534,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const pass1Args = [...ffmpegArgs.slice(0, -1), "-pass", "1", "-f", outputFormat ?? "mp4", nullDevice];
       const pass1Result = await runFFmpeg(pass1Args, {
         timeout: 5 * 60 * 1000,
-        workDir: "./tmp/ffmpeg",
       });
 
       if (!pass1Result.success) {
@@ -551,7 +556,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const pass2Args = [...ffmpegArgs.slice(0, -1), "-pass", "2", outputPath];
       const pass2Result = await runFFmpeg(pass2Args, {
         timeout: 5 * 60 * 1000,
-        workDir: "./tmp/ffmpeg",
       });
 
       if (!pass2Result.success) {
@@ -575,7 +579,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Single pass encoding
       result = await runFFmpeg(ffmpegArgs, {
         timeout: 5 * 60 * 1000,
-        workDir: "./tmp/ffmpeg",
       });
     }
 
