@@ -44,9 +44,9 @@ const COMPRESSION_MODES = [
 ] as const;
 
 const SIMPLE_PRESETS: readonly FormatOption[] = [
-  { value: "smallest", label: "Smallest", desc: "1 Mbps" },
-  { value: "balanced", label: "Balanced", desc: "5 Mbps" },
-  { value: "best", label: "Best Quality", desc: "10 Mbps" },
+  { value: "smallest", label: "Smallest", desc: "Max 720p" },
+  { value: "balanced", label: "Balanced", desc: "Max 1080p" },
+  { value: "best", label: "Best Quality", desc: "Original res" },
 ] as const;
 
 const FPS_OPTIONS: readonly FormatOption[] = [

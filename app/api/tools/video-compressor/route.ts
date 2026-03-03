@@ -93,24 +93,27 @@ const CODEC_CONFIG = {
 // Simple mode presets
 const SIMPLE_PRESETS = {
   smallest: {
-    crf: 28,
-    preset: "faster",
+    crf: 35,           // Very aggressive compression (0-51 scale)
+    preset: "medium",  // Better compression algorithms than "faster"
     maxBitrate: "1M",
-    audioBitrate: "96k",
+    audioBitrate: "64k", // Lower audio bitrate for smaller files
+    maxResolution: "720p", // Scale down to 720p max
     label: "Smallest File",
   },
   balanced: {
-    crf: 23,
+    crf: 28,
     preset: "medium",
-    maxBitrate: "5M",
+    maxBitrate: "3M",
     audioBitrate: "128k",
+    maxResolution: "1080p",
     label: "Balanced",
   },
   best: {
-    crf: 18,
+    crf: 20,
     preset: "slow",
-    maxBitrate: "10M",
+    maxBitrate: "8M",
     audioBitrate: "192k",
+    maxResolution: null, // Keep original resolution
     label: "Best Quality",
   },
 } as const;
@@ -274,6 +277,7 @@ function buildFFmpegArgs(options: {
   let presetName: string;
   let targetBitrate: string;
   let audioBitrate: string;
+  let maxResolution: string | null = null;
 
   if (preset && SIMPLE_PRESETS[preset]) {
     // Simple mode
@@ -282,6 +286,7 @@ function buildFFmpegArgs(options: {
     presetName = p.preset;
     targetBitrate = p.maxBitrate;
     audioBitrate = p.audioBitrate;
+    maxResolution = p.maxResolution;
   } else {
     // Advanced mode or backward compatibility
     const qualityPreset = quality && QUALITY_PRESETS[quality]
@@ -311,9 +316,10 @@ function buildFFmpegArgs(options: {
     args.push("-r", fps.toString());
   }
 
-  // Resolution
-  if (resolution && RESOLUTION_PRESETS[resolution]) {
-    const res = RESOLUTION_PRESETS[resolution];
+  // Resolution - check advanced mode first, then simple mode maxResolution
+  const resolutionToUse = resolution || maxResolution;
+  if (resolutionToUse && RESOLUTION_PRESETS[resolutionToUse]) {
+    const res = RESOLUTION_PRESETS[resolutionToUse];
     // Only scale down, not up
     if (videoInfo.width && videoInfo.height) {
       if (res.width < videoInfo.width || res.height < videoInfo.height) {
