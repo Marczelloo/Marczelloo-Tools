@@ -22,6 +22,13 @@ import {
   runFFprobe,
   validateInputFile,
 } from "@/lib/ffmpeg/runner";
+import {
+  createJob,
+  updateJob,
+  completeJob,
+  errorJob,
+  createProgressCallback,
+} from "@/lib/ffmpeg/progress-store";
 import { isToolEnabled } from "@/lib/featureFlags";
 import {
   createCombinedRateLimiter,
@@ -30,7 +37,7 @@ import {
 } from "@/lib/rate-limit";
 import { join } from "path";
 import { randomUUID } from "crypto";
-import { mkdir } from "fs/promises";
+import { mkdir, stat } from "fs/promises";
 import { existsSync } from "fs";
 
 // ============================================================================
@@ -348,6 +355,119 @@ function buildFFmpegArgs(options: {
 }
 
 // ============================================================================
+// BACKGROUND COMPRESSION PROCESSOR
+// ============================================================================
+
+interface CompressionContext {
+  jobId: string;
+  ffmpegArgs: string[];
+  outputPath: string;
+  outputFilename: string;
+  outputFormat?: "mp4" | "webm";
+  twoPass?: boolean;
+  videoInfo: VideoInfo;
+  uploadResult: { filepath: string; originalName: string; size: number };
+  mode: "simple" | "advanced";
+  preset?: SimplePreset;
+  quality?: QualityPreset;
+  bitrate: string;
+  compressionLevel?: number;
+  fps?: number;
+  resolution?: string;
+  estimatedSize: number;
+}
+
+async function runCompressionInBackground(ctx: CompressionContext): Promise<void> {
+  const { jobId, ffmpegArgs, outputPath, outputFilename, outputFormat, twoPass, videoInfo } = ctx;
+
+  try {
+    let result: { success: boolean; timedOut: boolean; error?: string; stderr: string; duration: number };
+
+    if (twoPass) {
+      // First pass (analyzes video, no output)
+      const nullDevice = process.platform === "win32" ? "NUL" : "/dev/null";
+      const pass1Args = [...ffmpegArgs.slice(0, -1), "-pass", "1", "-f", outputFormat ?? "mp4", nullDevice];
+
+      updateJob(jobId, { status: "processing", message: "First pass: Analyzing video..." });
+      const pass1Result = await runFFmpeg(
+        pass1Args,
+        { timeout: 5 * 60 * 1000 },
+        (progress) => {
+          updateJob(jobId, {
+            progress: progress.percent / 2,
+            message: `First pass: ${progress.percent.toFixed(1)}%`,
+            speed: progress.speed,
+          });
+        },
+        videoInfo.duration
+      );
+
+      if (!pass1Result.success) {
+        errorJob(jobId, pass1Result.error || "First pass failed");
+        return;
+      }
+
+      // Second pass (actual encoding)
+      const pass2Args = [...ffmpegArgs.slice(0, -1), "-pass", "2", outputPath];
+
+      updateJob(jobId, { message: "Second pass: Encoding video..." });
+      const pass2Result = await runFFmpeg(
+        pass2Args,
+        { timeout: 5 * 60 * 1000 },
+        (progress) => {
+          updateJob(jobId, {
+            progress: 50 + progress.percent / 2,
+            message: `Second pass: ${progress.percent.toFixed(1)}%`,
+            speed: progress.speed,
+          });
+        },
+        videoInfo.duration
+      );
+
+      if (!pass2Result.success) {
+        errorJob(jobId, pass2Result.error || "Second pass failed");
+        return;
+      }
+
+      result = pass2Result;
+    } else {
+      // Single pass encoding
+      updateJob(jobId, { status: "processing", message: "Compressing video..." });
+      result = await runFFmpeg(
+        ffmpegArgs,
+        { timeout: 5 * 60 * 1000 },
+        createProgressCallback(jobId),
+        videoInfo.duration
+      );
+    }
+
+    if (!result.success) {
+      errorJob(jobId, result.error || "Compression failed");
+      return;
+    }
+
+    // Get actual output size
+    let actualSize = 0;
+    try {
+      const stats = await stat(outputPath);
+      actualSize = stats.size;
+    } catch {
+      // Ignore stat errors
+    }
+
+    const downloadUrl = `/api/download/video-compressor/${outputFilename}`;
+
+    // Mark job as completed
+    completeJob(jobId, outputPath, actualSize, downloadUrl, outputFilename);
+
+    console.log(`[Video Compressor] Job ${jobId} completed. Output: ${actualSize} bytes`);
+  } catch (err) {
+    console.error(`[Video Compressor] Job ${jobId} error:`, err);
+    errorJob(jobId, err instanceof Error ? err.message : "Unknown compression error");
+  }
+}
+
+// ============================================================================
 // POST - COMPRESS VIDEO
 // ============================================================================
 
@@ -530,129 +650,49 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log("[Video Compressor] Output format:", outputFormat);
     console.log("[Video Compressor] FFmpeg args:", ffmpegArgs.join(" "));
 
-    // Run compression
-    let result: { success: boolean; timedOut: boolean; error?: string; stderr: string; duration: number };
+    // Create job for progress tracking
+    const jobId = randomUUID();
+    createJob(jobId, TOOL_ID, uploadResult.filepath, file.size, videoInfo.duration);
 
-    if (twoPass) {
-      // First pass (analyzes video, no output)
-      // Use platform-specific null device
-      const nullDevice = process.platform === "win32" ? "NUL" : "/dev/null";
-      const pass1Args = [...ffmpegArgs.slice(0, -1), "-pass", "1", "-f", outputFormat ?? "mp4", nullDevice];
-      const pass1Result = await runFFmpeg(pass1Args, {
-        timeout: 5 * 60 * 1000,
-      });
+    // Store all the data needed for background processing
+    const compressionContext = {
+      jobId,
+      ffmpegArgs,
+      outputPath,
+      outputFilename,
+      outputFormat,
+      twoPass,
+      videoInfo,
+      uploadResult,
+      mode,
+      preset,
+      quality,
+      bitrate: targetBitrate,
+      compressionLevel,
+      fps,
+      resolution,
+      estimatedSize,
+    };
 
-      if (!pass1Result.success) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: {
-              code: "COMPRESSION_FAILED",
-              message: pass1Result.timedOut
-                ? "First pass timed out"
-                : pass1Result.error || "FFmpeg first pass failed",
-              details: pass1Result.stderr.slice(-500),
-            },
-          },
-          { status: 500 }
-        );
-      }
-
-      // Second pass (actual encoding)
-      const pass2Args = [...ffmpegArgs.slice(0, -1), "-pass", "2", outputPath];
-      const pass2Result = await runFFmpeg(pass2Args, {
-        timeout: 5 * 60 * 1000,
-      });
-
-      if (!pass2Result.success) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: {
-              code: "COMPRESSION_FAILED",
-              message: pass2Result.timedOut
-                ? "Second pass timed out"
-                : pass2Result.error || "FFmpeg second pass failed",
-              details: pass2Result.stderr.slice(-500),
-            },
-          },
-          { status: 500 }
-        );
-      }
-
-      result = pass2Result;
-    } else {
-      // Single pass encoding
-      result = await runFFmpeg(ffmpegArgs, {
-        timeout: 5 * 60 * 1000,
-      });
-    }
-
-    if (!result.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "COMPRESSION_FAILED",
-            message: result.timedOut
-              ? "Compression timed out"
-              : result.error || "FFmpeg compression failed",
-            details: result.stderr.slice(-500), // Include stderr for debugging
-          },
-        },
-        { status: 500 }
-      );
-    }
-
-    // Get actual output size
-    const { stat } = await import("fs/promises");
-    let actualSize = 0;
-    try {
-      const stats = await stat(outputPath);
-      actualSize = stats.size;
-    } catch {
-      // Ignore stat errors
-    }
-
-    return addRateLimitHeaders(
+    // Return immediately with jobId so frontend can connect to SSE
+    const response = addRateLimitHeaders(
       NextResponse.json({
         success: true,
-        compression: {
-          input: {
-            filename: uploadResult.originalName,
-            size: uploadResult.size,
-            duration: videoInfo.duration,
-            resolution: videoInfo.width && videoInfo.height
-              ? `${videoInfo.width}x${videoInfo.height}`
-              : "Unknown",
-            codec: videoInfo.codec,
-          },
-          settings: {
-            mode,
-            preset: mode === "simple" ? preset : undefined,
-            quality: mode === "advanced" ? quality : undefined,
-            bitrate: targetBitrate,
-            compressionLevel,
-            fps,
-            resolution,
-            twoPass,
-          },
-          output: {
-            filename: outputFilename,
-            downloadUrl: `/api/download/video-compressor/${outputFilename}`,
-            format: outputFormat,
-            estimatedSize: estimatedSize,
-            actualSize: actualSize,
-            compressionRatio: actualSize > 0
-              ? `${Math.round((1 - actualSize / uploadResult.size) * 100)}%`
-              : "N/A",
-          },
-          duration: result.duration,
-        },
+        jobId,
+        message: "Compression started",
+        estimatedSize,
       }),
       RATE_LIMIT_CONFIGS.heavy,
       rateLimit.result
     );
+
+    // Run compression in background (don't await)
+    runCompressionInBackground(compressionContext).catch((err) => {
+      console.error("[Video Compressor] Background error:", err);
+      errorJob(jobId, err instanceof Error ? err.message : "Unknown error");
+    });
+
+    return response;
   } catch (error) {
     console.error("Video compression error:", error);
     return NextResponse.json(

@@ -38,7 +38,7 @@ interface ProgressState {
   progress: number;
   status: string;
   message: string;
-  speed?: string;
+  remainingTime?: string;
   time?: string;
 }
 
@@ -233,9 +233,59 @@ function VideoCompressorInner(): React.JSX.Element {
         return;
       }
 
-      setResult(data.compression);
-      setLoading(false);
-      setProgress({ progress: 100, status: "completed", message: "Done!" });
+      // If we got a jobId, connect to SSE for progress updates
+      if (data.jobId) {
+        const eventSource = new EventSource(`/api/ffmpeg/progress/${data.jobId}`);
+
+        eventSource.onmessage = (event) => {
+          try {
+            const progressData = JSON.parse(event.data);
+
+            if (progressData.type === "progress") {
+              setProgress({
+                progress: progressData.progress || 0,
+                status: progressData.status || "processing",
+                message: progressData.message || "Processing...",
+                remainingTime: progressData.remainingTime,
+                time: progressData.time,
+              });
+            } else if (progressData.type === "complete") {
+              setProgress({ progress: 100, status: "completed", message: "Done!" });
+              setResult({
+                input: { filename: file.name, size: file.size },
+                output: {
+                  filename: progressData.filename || "output.mp4",
+                  downloadUrl: progressData.downloadUrl || `/api/download/video-compressor/${progressData.filename}`,
+                  format: outputFormat,
+                  size: progressData.outputSize || 0,
+                },
+                compressionRatio: "",
+                duration: progressData.duration || 0,
+              });
+              setLoading(false);
+              eventSource.close();
+            } else if (progressData.type === "error") {
+              setError(progressData.error || "Compression failed");
+              setLoading(false);
+              setProgress(null);
+              eventSource.close();
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        };
+
+        eventSource.onerror = () => {
+          eventSource.close();
+        };
+
+        eventSourceRef.current = eventSource;
+      } else {
+        // Fallback: no SSE support, just use the result directly
+        setResult(data.compression);
+        setLoading(false);
+        setProgress({ progress: 100, status: "completed", message: "Done!" });
+      }
     } catch {
       setError("Failed to connect to server");
       setLoading(false);
@@ -476,9 +526,9 @@ function VideoCompressorInner(): React.JSX.Element {
                       />
                     </div>
                   </div>
-                  {progress.speed && (
+                  {progress.remainingTime && (
                     <p className="text-xs text-zinc-500 text-center">
-                      Speed: {progress.speed}
+                      Time remaining: {progress.remainingTime}
                     </p>
                   )}
                 </div>
