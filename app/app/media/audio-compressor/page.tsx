@@ -7,12 +7,15 @@ import type { ToolDefinition } from "@/lib/featureFlags";
 import { TactileDropzone } from "@/components/tool-ui/TactileDropzone";
 import { TactileFormatGrid, type FormatOption } from "@/components/tool-ui/TactileFormatGrid";
 import { TactileButton } from "@/components/tool-ui/TactileButton";
+import { Tabs } from "@/components/ui/tabs";
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-type QualityPreset = "low" | "medium" | "high";
+type CompressionMode = "simple" | "advanced";
+type SimplePreset = "smallest" | "balanced" | "best";
+type OutputFormat = "mp3" | "aac" | "ogg";
 
 interface CompressionResult {
   input: {
@@ -39,13 +42,35 @@ function formatSize(bytes: number): string {
 }
 
 // ============================================================================
-// QUALITY OPTIONS
+// OPTIONS
 // ============================================================================
 
-const QUALITY_OPTIONS: readonly FormatOption[] = [
-  { value: "low", label: "Low", desc: "64 kbps • Smallest" },
-  { value: "medium", label: "Medium", desc: "128 kbps • Balanced" },
-  { value: "high", label: "High", desc: "192 kbps • Best quality" },
+const COMPRESSION_MODES = [
+  { value: "simple", label: "Simple" },
+  { value: "advanced", label: "Advanced" },
+] as const;
+
+const SIMPLE_PRESETS: readonly FormatOption[] = [
+  { value: "smallest", label: "Smallest", desc: "64 kbps" },
+  { value: "balanced", label: "Balanced", desc: "128 kbps" },
+  { value: "best", label: "Best Quality", desc: "192 kbps" },
+] as const;
+
+const SAMPLE_RATE_OPTIONS: readonly FormatOption[] = [
+  { value: "22050", label: "22.05 kHz", desc: "Voice" },
+  { value: "44100", label: "44.1 kHz", desc: "CD" },
+  { value: "48000", label: "48 kHz", desc: "Pro" },
+] as const;
+
+const CHANNEL_OPTIONS: readonly FormatOption[] = [
+  { value: "1", label: "Mono", desc: "1 ch" },
+  { value: "2", label: "Stereo", desc: "2 ch" },
+] as const;
+
+const OUTPUT_FORMATS: readonly FormatOption[] = [
+  { value: "mp3", label: "MP3", desc: "Universal" },
+  { value: "aac", label: "AAC", desc: "Efficient" },
+  { value: "ogg", label: "OGG", desc: "Open" },
 ] as const;
 
 // ============================================================================
@@ -55,8 +80,22 @@ const QUALITY_OPTIONS: readonly FormatOption[] = [
 function AudioCompressorInner(): React.JSX.Element {
   const { tool } = useTool();
 
+  // Mode and file
+  const [mode, setMode] = useState<CompressionMode>("simple");
   const [file, setFile] = useState<File | null>(null);
-  const [quality, setQuality] = useState<QualityPreset>("medium");
+
+  // Simple mode state
+  const [preset, setPreset] = useState<SimplePreset>("balanced");
+
+  // Advanced mode state
+  const [bitrate, setBitrate] = useState("128");
+  const [sampleRate, setSampleRate] = useState("44100");
+  const [channels, setChannels] = useState("2");
+
+  // Common state
+  const [outputFormat, setOutputFormat] = useState<OutputFormat>("mp3");
+
+  // UI state
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CompressionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,10 +105,20 @@ function AudioCompressorInner(): React.JSX.Element {
 
     setLoading(true);
     setError(null);
+    setResult(null);
 
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("quality", quality);
+    formData.append("mode", mode);
+    formData.append("outputFormat", outputFormat);
+
+    if (mode === "simple") {
+      formData.append("preset", preset);
+    } else {
+      formData.append("bitrate", `${bitrate}k`);
+      formData.append("sampleRate", sampleRate);
+      formData.append("channels", channels);
+    }
 
     try {
       const response = await fetch("/api/tools/audio-compressor", {
@@ -91,7 +140,20 @@ function AudioCompressorInner(): React.JSX.Element {
       setError("Failed to connect to server");
       setLoading(false);
     }
-  }, [file, quality]);
+  }, [file, mode, preset, outputFormat, bitrate, sampleRate, channels]);
+
+  const resetState = useCallback(() => {
+    setFile(null);
+    setResult(null);
+    setError(null);
+    setLoading(false);
+    setMode("simple");
+    setPreset("balanced");
+    setOutputFormat("mp3");
+    setBitrate("128");
+    setSampleRate("44100");
+    setChannels("2");
+  }, []);
 
   return (
     <div className="min-h-full">
@@ -104,7 +166,7 @@ function AudioCompressorInner(): React.JSX.Element {
       <div className="p-6">
         <Container size="md" className="max-w-2xl mx-auto">
           <Surface variant="elevated" padding="lg">
-            {/* File Upload */}
+            {/* Step 1: File Upload */}
             <fieldset className="mb-6">
               <legend className="text-lg font-semibold text-white mb-4">
                 <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
@@ -125,18 +187,101 @@ function AudioCompressorInner(): React.JSX.Element {
               />
             </fieldset>
 
-            {/* Quality Settings */}
+            {/* Step 2: Mode Tabs */}
             <fieldset className="mb-6">
               <legend className="text-lg font-semibold text-white mb-4">
                 <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
                   2
                 </span>
-                Quality Preset
+                Compression Mode
+              </legend>
+              <Tabs
+                value={mode}
+                onValueChange={(v) => setMode(v as CompressionMode)}
+                tabs={COMPRESSION_MODES}
+              />
+            </fieldset>
+
+            {/* Step 3: Mode-Specific Options */}
+            {mode === "simple" && (
+              <fieldset className="mb-6">
+                <legend className="text-lg font-semibold text-white mb-4">
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
+                    3
+                  </span>
+                  Quality Preset
+                </legend>
+                <TactileFormatGrid
+                  options={SIMPLE_PRESETS}
+                  value={preset}
+                  onChange={(v) => setPreset(v as SimplePreset)}
+                />
+              </fieldset>
+            )}
+
+            {mode === "advanced" && (
+              <>
+                {/* Bitrate Input */}
+                <fieldset className="mb-6">
+                  <legend className="text-sm font-semibold text-zinc-400 mb-3">
+                    Bitrate
+                  </legend>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      value={bitrate}
+                      onChange={(e) => setBitrate(e.target.value)}
+                      min="32"
+                      max="320"
+                      placeholder="128"
+                      className="flex-1 px-4 py-2 bg-zinc-900 border border-white/10 rounded-md text-white font-mono text-sm focus:outline-none focus:border-white/30"
+                    />
+                    <span className="text-zinc-500 text-sm">kbps</span>
+                  </div>
+                  <p className="text-xs text-zinc-600 mt-2">Range: 32-320 kbps</p>
+                </fieldset>
+
+                {/* Sample Rate Selection */}
+                <fieldset className="mb-6">
+                  <legend className="text-sm font-semibold text-zinc-400 mb-3">
+                    Sample Rate
+                  </legend>
+                  <TactileFormatGrid
+                    options={SAMPLE_RATE_OPTIONS}
+                    value={sampleRate}
+                    onChange={setSampleRate}
+                    columns={3}
+                  />
+                </fieldset>
+
+                {/* Channels Selection */}
+                <fieldset className="mb-6">
+                  <legend className="text-sm font-semibold text-zinc-400 mb-3">
+                    Channels
+                  </legend>
+                  <TactileFormatGrid
+                    options={CHANNEL_OPTIONS}
+                    value={channels}
+                    onChange={setChannels}
+                    columns={2}
+                  />
+                </fieldset>
+              </>
+            )}
+
+            {/* Step 4: Output Format */}
+            <fieldset className="mb-6">
+              <legend className="text-lg font-semibold text-white mb-4">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
+                  {mode === "simple" ? "4" : "4"}
+                </span>
+                Output Format
               </legend>
               <TactileFormatGrid
-                options={QUALITY_OPTIONS}
-                value={quality}
-                onChange={(v) => setQuality(v as QualityPreset)}
+                options={OUTPUT_FORMATS}
+                value={outputFormat}
+                onChange={(v) => setOutputFormat(v as OutputFormat)}
+                columns={3}
               />
             </fieldset>
 
@@ -178,11 +323,7 @@ function AudioCompressorInner(): React.JSX.Element {
             {/* Action Buttons */}
             <div className="flex gap-4">
               <TactileButton
-                onClick={result ? () => {
-                  setFile(null);
-                  setResult(null);
-                  setError(null);
-                } : handleCompress}
+                onClick={result ? resetState : handleCompress}
                 disabled={!file || (loading && !result)}
                 loading={loading && !result}
                 variant={result ? "secondary" : "primary"}
@@ -194,11 +335,7 @@ function AudioCompressorInner(): React.JSX.Element {
               {file && !result && (
                 <TactileButton
                   variant="secondary"
-                  onClick={() => {
-                    setFile(null);
-                    setResult(null);
-                    setError(null);
-                  }}
+                  onClick={resetState}
                   disabled={loading}
                 >
                   Clear

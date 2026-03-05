@@ -31,13 +31,21 @@ const UPLOAD_CONFIG = {
   maxSizeBytes: 100 * 1024 * 1024, // 100MB
 };
 
-const QUALITY_PRESETS = {
-  low: { bitrate: "64k", sampleRate: "22050" },
-  medium: { bitrate: "128k", sampleRate: "44100" },
-  high: { bitrate: "192k", sampleRate: "48000" },
+const SIMPLE_PRESETS = {
+  smallest: { bitrate: "64k", sampleRate: "22050" },
+  balanced: { bitrate: "128k", sampleRate: "44100" },
+  best: { bitrate: "192k", sampleRate: "48000" },
 } as const;
 
-type QualityPreset = keyof typeof QUALITY_PRESETS;
+type SimplePreset = keyof typeof SIMPLE_PRESETS;
+
+const OUTPUT_FORMATS = {
+  mp3: { codec: "libmp3lame", extension: "mp3" },
+  aac: { codec: "aac", extension: "m4a" },
+  ogg: { codec: "libvorbis", extension: "ogg" },
+} as const;
+
+type OutputFormat = keyof typeof OUTPUT_FORMATS;
 
 // ============================================================================
 // HELPER: PARSE FORM DATA
@@ -45,18 +53,30 @@ type QualityPreset = keyof typeof QUALITY_PRESETS;
 
 async function parseFormData(request: NextRequest): Promise<{
   file: File | null;
-  quality?: QualityPreset;
+  mode: "simple" | "advanced";
+  preset: SimplePreset;
+  outputFormat: OutputFormat;
   bitrate?: string;
+  sampleRate?: string;
+  channels?: string;
 }> {
   const formData = await request.formData();
   const file = formData.get("file");
-  const quality = formData.get("quality")?.toString() as QualityPreset | undefined;
+  const mode = formData.get("mode")?.toString();
+  const preset = formData.get("preset")?.toString() as SimplePreset | undefined;
+  const outputFormat = formData.get("outputFormat")?.toString() as OutputFormat | undefined;
   const bitrate = formData.get("bitrate")?.toString();
+  const sampleRate = formData.get("sampleRate")?.toString();
+  const channels = formData.get("channels")?.toString();
 
   return {
     file: file instanceof File ? file : null,
-    quality: quality && QUALITY_PRESETS[quality] ? quality : "medium",
-    bitrate: bitrate && /^\d+[kMG]?$/.test(bitrate) ? bitrate : undefined,
+    mode: mode === "advanced" ? "advanced" : "simple",
+    preset: preset && SIMPLE_PRESETS[preset] ? preset : "balanced",
+    outputFormat: outputFormat && OUTPUT_FORMATS[outputFormat] ? outputFormat : "mp3",
+    bitrate: bitrate && /^\d+[kK]?$/ ? bitrate : undefined,
+    sampleRate: sampleRate && ["22050", "44100", "48000"].includes(sampleRate) ? sampleRate : undefined,
+    channels: channels && ["1", "2"].includes(channels) ? channels : undefined,
   };
 }
 
@@ -73,22 +93,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const { file, quality, bitrate } = await parseFormData(request);
+    const params = await parseFormData(request);
 
-    if (!file) {
+    if (!params.file) {
       return NextResponse.json(
         { success: false, error: { code: "MISSING_FILE", message: "No audio file provided" } },
         { status: 400 }
       );
     }
 
-    const arrayBuffer = await file.arrayBuffer();
+    const arrayBuffer = await params.file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
     let uploadResult: UploadResult;
     try {
       uploadResult = await processUpload(
-        { name: file.name, type: file.type, size: file.size, buffer },
+        { name: params.file.name, type: params.file.type, size: params.file.size, buffer },
         UPLOAD_CONFIG
       );
     } catch (error) {
@@ -108,24 +128,40 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const preset = QUALITY_PRESETS[quality ?? "medium"];
-    const targetBitrate = bitrate ?? preset.bitrate;
+    // Determine output format
+    const format = OUTPUT_FORMATS[params.outputFormat];
+
+    // Determine compression settings based on mode
+    let targetBitrate: string;
+    let targetSampleRate: string;
+    let targetChannels: string;
+
+    if (params.mode === "simple") {
+      const preset = SIMPLE_PRESETS[params.preset];
+      targetBitrate = preset.bitrate;
+      targetSampleRate = preset.sampleRate;
+      targetChannels = "2";
+    } else {
+      targetBitrate = params.bitrate ?? "128k";
+      targetSampleRate = params.sampleRate ?? "44100";
+      targetChannels = params.channels ?? "2";
+    }
 
     const outputDir = "./tmp/processed/audio-compressor";
     if (!existsSync(outputDir)) {
       await mkdir(outputDir, { recursive: true });
     }
 
-    const outputFilename = `${randomUUID()}.mp3`;
+    const outputFilename = `${randomUUID()}.${format.extension}`;
     const outputPath = join(outputDir, outputFilename);
 
     const ffmpegArgs = [
       "-y",
       "-i", uploadResult.filepath,
-      "-c:a", "libmp3lame",
+      "-c:a", format.codec,
       "-b:a", targetBitrate,
-      "-ar", preset.sampleRate,
-      "-ac", "2",
+      "-ar", targetSampleRate,
+      "-ac", targetChannels,
       outputPath,
     ];
 
@@ -155,11 +191,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       success: true,
       compression: {
         input: { filename: uploadResult.originalName, size: uploadResult.size },
-        settings: { quality, bitrate: targetBitrate },
+        settings: { mode: params.mode, preset: params.preset, bitrate: targetBitrate },
         output: {
           filename: outputFilename,
           downloadUrl: `/api/download/audio-compressor/${outputFilename}`,
-          format: "mp3",
+          format: params.outputFormat,
           size: outputSize,
           compressionRatio,
         },
