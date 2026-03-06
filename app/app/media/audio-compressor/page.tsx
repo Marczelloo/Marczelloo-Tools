@@ -41,6 +41,28 @@ function formatSize(bytes: number): string {
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
 }
 
+function estimateSize(originalSize: number, preset: SimplePreset): number {
+  // Compression ratios aligned with advanced formula (bitrate / 320)
+  // 64 kbps -> 0.2, 128 kbps -> 0.4, 192 kbps -> 0.6
+  const ratios: Record<SimplePreset, number> = {
+    smallest: 0.2,   // 64 kbps - aggressive compression
+    balanced: 0.4,   // 128 kbps - standard quality
+    best: 0.6,       // 192 kbps - high quality
+  };
+  return Math.round(originalSize * ratios[preset]);
+}
+
+function estimateAdvancedSize(originalSize: number, bitrate: string): number {
+  // Parse bitrate (e.g., "128" -> 128)
+  const bitrateNum = parseInt(bitrate, 10) || 128;
+
+  // Map bitrate to compression ratio (linear scale)
+  // 32 kbps -> ~0.1, 128 kbps -> 0.4, 320 kbps -> 1.0
+  const ratio = Math.min(1.0, Math.max(0.2, bitrateNum / 320));
+
+  return Math.round(originalSize * ratio);
+}
+
 // ============================================================================
 // OPTIONS
 // ============================================================================
