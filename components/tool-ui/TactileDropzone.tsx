@@ -9,6 +9,7 @@ interface TactileDropzoneProps {
   currentFile: File | null;
   maxSizeLabel?: string;
   fileTypesLabel?: string;
+  disabled?: boolean;
 }
 
 function formatSize(bytes: number): string {
@@ -45,6 +46,7 @@ export function TactileDropzone({
   currentFile,
   maxSizeLabel = "Max 200MB",
   fileTypesLabel,
+  disabled = false,
 }: TactileDropzoneProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
@@ -58,31 +60,35 @@ export function TactileDropzone({
   }, [currentFile]);
 
   const handleClick = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
+    if (!disabled) {
+      fileInputRef.current?.click();
+    }
+  }, [disabled]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Enter" || e.key === " ") {
+    if (!disabled && (e.key === "Enter" || e.key === " ")) {
       e.preventDefault();
       fileInputRef.current?.click();
     }
-  }, []);
+  }, [disabled]);
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
     const file = e.target.files?.[0];
     if (file) {
       onFileSelect(file);
     }
-  }, [onFileSelect]);
+  }, [onFileSelect, disabled]);
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
+    if (disabled) return;
     e.preventDefault();
     e.stopPropagation();
     dragCounterRef.current++;
     if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
       setIsDragging(true);
     }
-  }, []);
+  }, [disabled]);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -99,6 +105,7 @@ export function TactileDropzone({
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
+    if (disabled) return;
     e.preventDefault();
     e.stopPropagation();
     dragCounterRef.current = 0;
@@ -108,14 +115,16 @@ export function TactileDropzone({
     if (file) {
       onFileSelect(file);
     }
-  }, [onFileSelect]);
+  }, [onFileSelect, disabled]);
 
-  const baseClasses = "border-2 rounded-lg p-8 text-center cursor-pointer transition-all duration-200";
-  const stateClasses = isDragging
-    ? "bg-white/10 border-white/40"
+  const baseClasses = "border-2 rounded-lg p-8 text-center transition-all duration-200";
+  const stateClasses = disabled
+    ? "bg-zinc-900/30 border-dashed border-white/5 cursor-not-allowed opacity-50"
+    : isDragging
+    ? "bg-white/10 border-white/40 cursor-pointer"
     : currentFile
-    ? "bg-zinc-900/50 border-solid border-white/15"
-    : "bg-zinc-900/50 border-dashed border-white/10 hover:border-white/30 hover:bg-white/5";
+    ? "bg-zinc-900/50 border-solid border-white/15 cursor-pointer"
+    : "bg-zinc-900/50 border-dashed border-white/10 hover:border-white/30 hover:bg-white/5 cursor-pointer";
 
   const dropzoneId = useRef(`tactile-dropzone-${Math.random().toString(36).substring(2, 9)}`).current;
   const descriptionId = `${dropzoneId}-description`;

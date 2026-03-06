@@ -4,10 +4,14 @@
  * POST /api/tools/video-trimmer
  *
  * Trims video clips between start and end times
+ *
+ * Supports two modes:
+ * 1. Direct file upload (multipart/form-data with file field)
+ * 2. Chunked upload reference (fileToken field referencing assembled file)
  */
 
 import { type NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
+import { writeFile, mkdir, stat as statFile } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 import { randomUUID } from "crypto";
@@ -26,8 +30,9 @@ import { isToolEnabled } from "@/lib/featureFlags";
 // ============================================================================
 
 const TOOL_ID = "video-trimmer";
-const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024; // 10GB (for chunked uploads)
 const UPLOAD_DIR = "./tmp/uploads/video-trimmer";
+const ASSEMBLY_DIR = "./tmp/uploads/assembly"; // Where chunked uploads are assembled
 
 // ============================================================================
 // HELPERS
@@ -190,12 +195,55 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    // Parse the multipart form data using streaming
+    // Parse the multipart form data
     const { file, fields } = await parseMultipartUpload(request);
 
-    if (!file) {
+    // Check for chunked upload reference (fileToken)
+    const fileToken = fields.fileToken;
+
+    let uploadResult: UploadResult;
+
+    if (fileToken && !file) {
+      // Using chunked upload - file is already assembled in ASSEMBLY_DIR
+      const filePath = join(ASSEMBLY_DIR, fileToken);
+
+      // Security: Validate the file token doesn't contain path traversal
+      if (fileToken.includes("..") || fileToken.includes("/") || fileToken.includes("\\")) {
+        return NextResponse.json(
+          { success: false, error: { code: "INVALID_TOKEN", message: "Invalid file token" } },
+          { status: 400 }
+        );
+      }
+
+      if (!existsSync(filePath)) {
+        return NextResponse.json(
+          { success: false, error: { code: "FILE_NOT_FOUND", message: "Uploaded file not found or expired. Please re-upload." } },
+          { status: 404 }
+        );
+      }
+
+      const fileStats = await statFile(filePath);
+      const filename = fields.filename || fileToken;
+
+      uploadResult = {
+        filepath: filePath,
+        filename: fileToken,
+        originalName: filename,
+        mimeType: fields.mimeType || "video/mp4",
+        size: fileStats.size,
+      };
+    } else if (file) {
+      // Direct file upload
+      uploadResult = {
+        filepath: file.filepath,
+        filename: file.filepath.split("/").pop() || file.filename,
+        originalName: file.filename,
+        mimeType: file.mimetype,
+        size: file.size,
+      };
+    } else {
       return NextResponse.json(
-        { success: false, error: { code: "MISSING_FILE", message: "No video file provided" } },
+        { success: false, error: { code: "MISSING_FILE", message: "No video file or file token provided" } },
         { status: 400 }
       );
     }
@@ -205,25 +253,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Validate file type
     const validVideoTypes = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo", "video/mpeg"];
-    if (!validVideoTypes.includes(file.mimetype) && !file.filename.match(/\.(mp4|webm|mov|avi|mpg|mpeg)$/i)) {
+    if (!validVideoTypes.includes(uploadResult.mimeType) && !uploadResult.originalName.match(/\.(mp4|webm|mov|avi|mpg|mpeg)$/i)) {
       return NextResponse.json(
         { success: false, error: { code: "INVALID_FILE_TYPE", message: "Please upload a valid video file (MP4, WebM, MOV, AVI)" } },
         { status: 400 }
       );
     }
 
-    // Create upload result from the saved file
-    const uploadResult: UploadResult = {
-      filepath: file.filepath,
-      filename: file.filepath.split("/").pop() || file.filename,
-      originalName: file.filename,
-      mimeType: file.mimetype,
-      size: file.size,
-    };
-
     if (!(await validateInputFile(uploadResult.filepath))) {
       return NextResponse.json(
-        { success: false, error: { code: "FILE_NOT_FOUND", message: "Uploaded file not found" } },
+        { success: false, error: { code: "INVALID_INPUT", message: "Could not validate input file" } },
         { status: 500 }
       );
     }
@@ -246,6 +285,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     ffmpegArgs.push(
       "-c:v", "libx264",
       "-c:a", "aac",
+      "-avoid_negative_ts", "1",
+      "-fflags", "+genpts",
       "-movflags", "+faststart",
       outputPath
     );

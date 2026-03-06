@@ -281,13 +281,26 @@ export function MediaTimeline({
       media.pause();
       setIsPlaying(false);
     } else {
-      if (currentTime < startTime || currentTime >= endTime) {
+      const needsSeek = currentTime < startTime || currentTime >= endTime;
+
+      const startPlayback = () => {
+        media.play().catch(() => {
+          setError("Failed to play media");
+        });
+        setIsPlaying(true);
+      };
+
+      if (needsSeek) {
+        // Wait for seek to complete before playing to avoid stuttering
+        const handleSeeked = () => {
+          media.removeEventListener("seeked", handleSeeked);
+          startPlayback();
+        };
+        media.addEventListener("seeked", handleSeeked);
         media.currentTime = startTime;
+      } else {
+        startPlayback();
       }
-      media.play().catch(() => {
-        setError("Failed to play media");
-      });
-      setIsPlaying(true);
     }
   }, [isPlaying, currentTime, startTime, endTime, duration]);
 
@@ -325,6 +338,39 @@ export function MediaTimeline({
     [duration, startTime, endTime]
   );
 
+  // Scrubbing state ref
+  const isScrubbing = useRef(false);
+
+  // Handle playhead drag for scrubbing
+  const handlePlayheadMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    isScrubbing.current = true;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isScrubbing.current || !timelineRef.current || !mediaRef.current || duration <= 0) return;
+      const rect = timelineRef.current.getBoundingClientRect();
+      const x = moveEvent.clientX - rect.left;
+      const percent = Math.max(0, Math.min(1, x / rect.width));
+      const time = percent * duration;
+      const clampedTime = Math.max(startTimeRef.current, Math.min(endTimeRef.current, time));
+      const media = mediaRef.current;
+      if (media) {
+        media.currentTime = clampedTime;
+        setCurrentTime(clampedTime);
+      }
+    };
+
+    const handleMouseUp = () => {
+      isScrubbing.current = false;
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }, [duration]);
+
   // Volume control
   const handleVolumeChange = useCallback((newVolume: number) => {
     const media = mediaRef.current;
@@ -353,27 +399,40 @@ export function MediaTimeline({
 
       if (mainMedia) {
         if (isPlaying && displayVideo.paused) {
+          // Sync position before playing to ensure they start together
           displayVideo.currentTime = mainMedia.currentTime;
-          displayVideo.play().catch(() => {});
+          // Small delay to ensure the seek completes before playing
+          requestAnimationFrame(() => {
+            displayVideo.play().catch(() => {});
+          });
         } else if (!isPlaying && !displayVideo.paused) {
           displayVideo.pause();
         }
-        displayVideo.volume = volume;
-        displayVideo.muted = isMuted;
+        // Display video is always muted - main media handles audio
       }
     }
-  }, [isPlaying, mediaUrl, type, volume, isMuted]);
+  }, [isPlaying, mediaUrl, type]);
 
-  // Sync current time
+  // Sync current time (only when playing to avoid interference with seeking)
   useEffect(() => {
-    if (type === "video" && displayVideoRef.current && mediaRef.current) {
+    if (type === "video" && displayVideoRef.current && mediaRef.current && isPlaying) {
       const displayVideo = displayVideoRef.current;
       const mainMedia = mediaRef.current;
-      if (Math.abs(displayVideo.currentTime - mainMedia.currentTime) > 0.3) {
+      // Use larger threshold to avoid constant micro-seeks
+      if (Math.abs(displayVideo.currentTime - mainMedia.currentTime) > 0.5) {
         displayVideo.currentTime = mainMedia.currentTime;
       }
     }
-  }, [currentTime, type]);
+  }, [currentTime, type, isPlaying]);
+
+  // Sync current time with start time when start moves past current (only when NOT playing)
+  useEffect(() => {
+    const media = mediaRef.current;
+    if (media && !isPlaying && currentTime < startTime) {
+      media.currentTime = startTime;
+      setCurrentTime(startTime);
+    }
+  }, [startTime, currentTime, isPlaying]);
 
   // Stop at end time
   useEffect(() => {
@@ -445,7 +504,7 @@ export function MediaTimeline({
             src={mediaUrl}
             className="w-full h-full object-contain"
             playsInline
-            muted={isMuted}
+            muted
           />
           {/* Time overlay */}
           <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/70 rounded text-xs font-mono text-white">
@@ -518,13 +577,14 @@ export function MediaTimeline({
             />
           )}
 
-          {/* Playhead */}
+          {/* Playhead - draggable for scrubbing */}
           {showContent && (
             <div
-              className="absolute top-0 bottom-0 w-0.5 bg-white z-[5] pointer-events-none"
+              className="absolute top-0 bottom-0 w-0.5 bg-white z-[5] cursor-ew-resize group"
               style={{ left: `${currentPercent}%` }}
+              onMouseDown={handlePlayheadMouseDown}
             >
-              <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-white rounded-full shadow" />
+              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-4 bg-white rounded-full shadow group-hover:scale-110 transition-transform" />
             </div>
           )}
 

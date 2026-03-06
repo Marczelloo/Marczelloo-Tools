@@ -7,14 +7,13 @@ const nextConfig: NextConfig = {
   // Standalone output for Docker
   output: "standalone",
 
-  // Increase body size limit for large file uploads (videos, etc.)
-  experimental: {
-    // Allow up to 250MB for API route body size
-    proxyClientMaxBodySize: "250mb",
-  },
-
   // API route configuration
   serverExternalPackages: ["fluent-ffmpeg"],
+
+  // Increase body size limit for large file uploads
+  experimental: {
+    middlewareClientMaxBodySize: "50mb",
+  },
 };
 
 export default nextConfig;

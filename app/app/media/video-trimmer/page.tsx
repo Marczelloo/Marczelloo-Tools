@@ -1,18 +1,31 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { PageHeader, Surface, Container } from "@/components/layout";
 import { ToolProvider, useTool } from "@/lib/tool-context";
 import { MediaTimeline } from "@/components/tool-ui";
 import { TactileDropzone } from "@/components/tool-ui/TactileDropzone";
 import { TactileButton } from "@/components/tool-ui/TactileButton";
 import type { ToolDefinition } from "@/lib/featureFlags";
+import { chunkedUpload, formatBytes, formatETA, type UploadProgress } from "@/lib/upload/chunked-upload";
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface UploadState {
+  status: "idle" | "uploading" | "complete" | "error";
+  progress: UploadProgress | null;
+  fileToken: string | null;
+  error: string | null;
+}
+
+// ============================================================================
+// HELPERS
+// ============================================================================
 
 function formatSize(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+  return formatBytes(bytes);
 }
 
 function formatTime(seconds: number): string {
@@ -21,6 +34,47 @@ function formatTime(seconds: number): string {
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
+
+// ============================================================================
+// UPLOAD PROGRESS COMPONENT
+// ============================================================================
+
+function UploadProgressBar({ progress }: { progress: UploadProgress }): React.JSX.Element {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-xs font-mono">
+        <span className="text-zinc-400">
+          Uploading... {formatBytes(progress.uploadedBytes)} / {formatBytes(progress.totalBytes)}
+        </span>
+        <span className="text-white font-medium">{progress.percentage.toFixed(1)}%</span>
+      </div>
+
+      <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-white transition-all duration-150 rounded-full"
+          style={{ width: `${progress.percentage}%` }}
+        />
+      </div>
+
+      <div className="flex items-center justify-between text-xs text-zinc-500">
+        <span>
+          {progress.speed > 0 ? `${formatBytes(progress.speed)}/s` : "Calculating..."}
+        </span>
+        <span>
+          ETA: {formatETA(progress.eta)}
+        </span>
+      </div>
+
+      <div className="text-xs text-zinc-600 text-center">
+        Chunk {progress.chunksCompleted} of {progress.totalChunks}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 
 function VideoTrimmerInner(): React.JSX.Element {
   const { tool } = useTool();
@@ -35,23 +89,97 @@ function VideoTrimmerInner(): React.JSX.Element {
     };
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [uploadState, setUploadState] = useState<UploadState>({
+    status: "idle",
+    progress: null,
+    fileToken: null,
+    error: null,
+  });
 
-  const handleFileSelect = useCallback((selectedFile: File) => {
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Determine file size threshold for chunked upload (50MB)
+  const CHUNKED_UPLOAD_THRESHOLD = 50 * 1024 * 1024;
+
+  const handleFileSelect = useCallback(async (selectedFile: File) => {
     setFile(selectedFile);
     setError(null);
     setResult(null);
     setStartTime(0);
     setEndTime(0);
+
+    // Reset upload state
+    setUploadState({
+      status: "idle",
+      progress: null,
+      fileToken: null,
+      error: null,
+    });
+
+    // Auto-upload if file is large enough for chunked upload
+    if (selectedFile.size > CHUNKED_UPLOAD_THRESHOLD) {
+      // Start chunked upload
+      abortControllerRef.current = new AbortController();
+
+      try {
+        const uploadResult = await chunkedUpload(selectedFile, {
+          chunkSize: 10 * 1024 * 1024, // 10MB chunks
+          concurrency: 3,
+          signal: abortControllerRef.current.signal,
+          onProgress: (progress) => {
+            setUploadState({
+              status: "uploading",
+              progress,
+              fileToken: null,
+              error: null,
+            });
+          },
+        });
+
+        setUploadState({
+          status: "complete",
+          progress: null,
+          fileToken: uploadResult.file.filename,
+          error: null,
+        });
+      } catch (err) {
+        if (err instanceof Error && err.message === "Upload cancelled") {
+          setUploadState({
+            status: "idle",
+            progress: null,
+            fileToken: null,
+            error: null,
+          });
+        } else {
+          setUploadState({
+            status: "error",
+            progress: null,
+            fileToken: null,
+            error: err instanceof Error ? err.message : "Upload failed",
+          });
+        }
+      }
+    }
   }, []);
 
   const handleTrim = useCallback(async () => {
     if (!file) return;
     setLoading(true);
     setError(null);
+
     const formData = new FormData();
-    formData.append("file", file);
     formData.append("startTime", formatTime(startTime));
     if (endTime > 0) formData.append("endTime", formatTime(endTime));
+
+    // Use file token if available (chunked upload), otherwise send file directly
+    if (uploadState.fileToken) {
+      formData.append("fileToken", uploadState.fileToken);
+      formData.append("filename", file.name);
+      formData.append("mimeType", file.type || "video/mp4");
+    } else {
+      formData.append("file", file);
+    }
+
     try {
       const response = await fetch("/api/tools/video-trimmer", { method: "POST", body: formData });
       const data = await response.json();
@@ -62,15 +190,30 @@ function VideoTrimmerInner(): React.JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [file, startTime, endTime]);
+  }, [file, startTime, endTime, uploadState.fileToken]);
 
   const handleClear = useCallback(() => {
+    // Cancel any ongoing upload
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
     setFile(null);
     setResult(null);
     setError(null);
     setStartTime(0);
     setEndTime(0);
+    setUploadState({
+      status: "idle",
+      progress: null,
+      fileToken: null,
+      error: null,
+    });
   }, []);
+
+  const isUploading = uploadState.status === "uploading";
+  const isReadyToTrim = file && !isUploading && (uploadState.status === "complete" || file.size <= CHUNKED_UPLOAD_THRESHOLD);
 
   return (
     <div className="min-h-full">
@@ -90,21 +233,38 @@ function VideoTrimmerInner(): React.JSX.Element {
                 Select Video
               </legend>
               <TactileDropzone
-                onFileSelect={(selectedFile) => {
-                  setFile(selectedFile);
-                  setError(null);
-                  setResult(null);
-                  setStartTime(0);
-                  setEndTime(0);
-                }}
+                onFileSelect={handleFileSelect}
                 accept="video/*"
                 currentFile={file}
-                maxSizeLabel="Max 200MB"
-                fileTypesLabel="MP4, WebM, MOV"
+                maxSizeLabel="No size limit"
+                fileTypesLabel="MP4, WebM, MOV, AVI"
+                disabled={isUploading}
               />
+
+              {/* Upload progress for large files */}
+              {uploadState.status === "uploading" && uploadState.progress && (
+                <div className="mt-4 p-4 bg-zinc-900 border border-white/10 rounded-md">
+                  <UploadProgressBar progress={uploadState.progress} />
+                </div>
+              )}
+
+              {/* Upload complete indicator */}
+              {uploadState.status === "complete" && (
+                <div className="mt-4 p-3 bg-zinc-900 border border-zinc-700 rounded-md flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full" />
+                  <span className="text-sm text-zinc-300">File uploaded and ready</span>
+                </div>
+              )}
+
+              {/* Upload error */}
+              {uploadState.status === "error" && (
+                <div className="mt-4 p-3 bg-zinc-900 border border-red-900/50 rounded-md">
+                  <p className="text-sm text-red-400">{uploadState.error}</p>
+                </div>
+              )}
             </fieldset>
 
-            {file && (
+            {file && isReadyToTrim && (
               <fieldset className="mb-6">
                 <legend className="text-lg font-semibold text-white mb-4">
                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-sm mr-2">
@@ -166,13 +326,9 @@ function VideoTrimmerInner(): React.JSX.Element {
             <div className="flex gap-4">
               <TactileButton
                 onClick={result ? () => {
-                  setFile(null);
-                  setResult(null);
-                  setError(null);
-                  setStartTime(0);
-                  setEndTime(0);
+                  handleClear();
                 } : handleTrim}
-                disabled={!file || loading || (endTime <= startTime && !result)}
+                disabled={!isReadyToTrim || loading || (endTime <= startTime && !result)}
                 loading={loading && !result}
                 variant={result ? "secondary" : "primary"}
                 fullWidth
@@ -183,16 +339,10 @@ function VideoTrimmerInner(): React.JSX.Element {
               {file && !result && (
                 <TactileButton
                   variant="secondary"
-                  onClick={() => {
-                    setFile(null);
-                    setResult(null);
-                    setError(null);
-                    setStartTime(0);
-                    setEndTime(0);
-                  }}
-                  disabled={loading}
+                  onClick={handleClear}
+                  disabled={loading && !isUploading}
                 >
-                  Clear
+                  {isUploading ? "Cancel" : "Clear"}
                 </TactileButton>
               )}
             </div>
