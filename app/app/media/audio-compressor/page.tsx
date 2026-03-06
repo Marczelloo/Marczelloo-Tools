@@ -315,6 +315,47 @@ function AudioCompressorInner(): React.JSX.Element {
               />
             </fieldset>
 
+            {/* Size Estimation */}
+            {file && (
+              <fieldset className="mb-6">
+                <legend className="text-lg font-semibold text-white mb-4">
+                  Size Estimation
+                </legend>
+                <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-xs text-zinc-500 uppercase font-mono">Original</p>
+                      <p className="text-lg font-semibold text-white mt-1 font-mono">
+                        {formatSize(file.size)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-zinc-500 uppercase font-mono">Estimated</p>
+                      <p className="text-lg font-semibold text-white mt-1 font-mono">
+                        {formatSize(estimatedSize)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-zinc-500 uppercase font-mono">Reduction</p>
+                      <p className="text-lg font-semibold text-white mt-1 font-mono">
+                        {compressionRatio}%
+                      </p>
+                    </div>
+                  </div>
+                  {mode === "advanced" && (
+                    <p className="text-xs text-zinc-600 mt-3 text-center">
+                      Based on current settings (bitrate: {bitrate} kbps)
+                    </p>
+                  )}
+                  {mode === "simple" && (
+                    <p className="text-xs text-zinc-600 mt-3 text-center">
+                      Based on &quot;{preset}&quot; preset
+                    </p>
+                  )}
+                </div>
+              </fieldset>
+            )}
+
             {/* Error Display */}
             {error && (
               <div className="mb-6 p-4 bg-zinc-900/50 border border-zinc-700 rounded-md">
