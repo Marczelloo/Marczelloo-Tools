@@ -122,6 +122,14 @@ function AudioCompressorInner(): React.JSX.Element {
   const [result, setResult] = useState<CompressionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Calculate estimated size based on mode
+  const estimatedSize = file
+    ? mode === "simple"
+      ? estimateSize(file.size, preset)
+      : estimateAdvancedSize(file.size, bitrate)
+    : 0;
+  const compressionRatio = file ? ((1 - estimatedSize / file.size) * 100).toFixed(0) : "0";
+
   const handleCompress = useCallback(async () => {
     if (!file) return;
 
