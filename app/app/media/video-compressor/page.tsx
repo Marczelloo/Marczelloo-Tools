@@ -514,23 +514,16 @@ function VideoCompressorInner(): React.JSX.Element {
                   Compression Progress
                 </legend>
                 <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
-                  <div className="mb-3">
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-zinc-400">{progress.message}</span>
-                      <span className="text-white font-mono">{Math.round(progress.progress)}%</span>
-                    </div>
-                    <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-white transition-all duration-300 ease-out"
-                        style={{ width: `${progress.progress}%` }}
-                      />
-                    </div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-white font-mono text-sm">{Math.round(progress.progress)}%</span>
+                    <span className="text-zinc-400 font-mono text-xs">{progress.remainingTime ? `~${progress.remainingTime}` : progress.message}</span>
                   </div>
-                  {progress.remainingTime && (
-                    <p className="text-xs text-zinc-500 text-center">
-                      Time remaining: {progress.remainingTime}
-                    </p>
-                  )}
+                  <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-white transition-all duration-300 ease-out"
+                      style={{ width: `${progress.progress}%` }}
+                    />
+                  </div>
                 </div>
               </fieldset>
             )}

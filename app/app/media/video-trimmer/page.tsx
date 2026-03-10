@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { PageHeader, Surface, Container } from "@/components/layout";
 import { ToolProvider, useTool } from "@/lib/tool-context";
 import { MediaTimeline } from "@/components/tool-ui";
@@ -18,6 +18,13 @@ interface UploadState {
   progress: UploadProgress | null;
   fileToken: string | null;
   error: string | null;
+}
+
+interface TrimProgress {
+  progress: number;
+  status: string;
+  message: string;
+  remainingTime?: string;
 }
 
 // ============================================================================
@@ -95,8 +102,19 @@ function VideoTrimmerInner(): React.JSX.Element {
     fileToken: null,
     error: null,
   });
+  const [trimProgress, setTrimProgress] = useState<TrimProgress | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  // Cleanup SSE on unmount
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+    };
+  }, []);
 
   // Determine file size threshold for chunked upload (50MB)
   const CHUNKED_UPLOAD_THRESHOLD = 50 * 1024 * 1024;
@@ -166,6 +184,7 @@ function VideoTrimmerInner(): React.JSX.Element {
     if (!file) return;
     setLoading(true);
     setError(null);
+    setTrimProgress({ progress: 0, status: "starting", message: "Starting trim..." });
 
     const formData = new FormData();
     formData.append("startTime", formatTime(startTime));
@@ -183,12 +202,71 @@ function VideoTrimmerInner(): React.JSX.Element {
     try {
       const response = await fetch("/api/tools/video-trimmer", { method: "POST", body: formData });
       const data = await response.json();
-      if (!data.success) setError(data.error?.message ?? "Trim failed");
-      else setResult(data);
+
+      if (!data.success) {
+        setError(data.error?.message ?? "Trim failed");
+        setLoading(false);
+        setTrimProgress(null);
+        return;
+      }
+
+      // If we got a jobId, connect to SSE for progress updates
+      if (data.jobId) {
+        const eventSource = new EventSource(`/api/ffmpeg/progress/${data.jobId}`);
+
+        eventSource.onmessage = (event) => {
+          try {
+            const progressData = JSON.parse(event.data);
+
+            if (progressData.type === "progress" || progressData.status === "processing") {
+              setTrimProgress({
+                progress: progressData.progress || progressData.percent || 0,
+                status: progressData.status || "processing",
+                message: progressData.message || "Processing...",
+                remainingTime: progressData.remainingTime,
+              });
+            } else if (progressData.type === "complete" || progressData.status === "completed") {
+              setTrimProgress({ progress: 100, status: "completed", message: "Done!" });
+              setResult({
+                trim: {
+                  output: {
+                    filename: progressData.filename || "output.mp4",
+                    downloadUrl: progressData.downloadUrl || `/api/download/video-trimmer/${progressData.filename}`,
+                    size: progressData.outputSize || 0,
+                  },
+                  settings: {
+                    startTime: formatTime(startTime),
+                    endTime: endTime > 0 ? formatTime(endTime) : "End",
+                  },
+                },
+              });
+              setLoading(false);
+              eventSource.close();
+            } else if (progressData.type === "error" || progressData.status === "error") {
+              setError(progressData.error || progressData.message || "Trim failed");
+              setLoading(false);
+              setTrimProgress(null);
+              eventSource.close();
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        };
+
+        eventSource.onerror = () => {
+          eventSource.close();
+        };
+
+        eventSourceRef.current = eventSource;
+      } else {
+        // Fallback: no SSE support
+        setLoading(false);
+        setTrimProgress(null);
+      }
     } catch {
       setError("Failed to connect to server");
-    } finally {
       setLoading(false);
+      setTrimProgress(null);
     }
   }, [file, startTime, endTime, uploadState.fileToken]);
 
@@ -199,11 +277,18 @@ function VideoTrimmerInner(): React.JSX.Element {
       abortControllerRef.current = null;
     }
 
+    // Close SSE connection
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+
     setFile(null);
     setResult(null);
     setError(null);
     setStartTime(0);
     setEndTime(0);
+    setTrimProgress(null);
     setUploadState({
       status: "idle",
       progress: null,
@@ -283,6 +368,27 @@ function VideoTrimmerInner(): React.JSX.Element {
                 <p className="text-xs text-zinc-500 mt-4 text-center">
                   Drag the START and END handles to select your trim range
                 </p>
+              </fieldset>
+            )}
+
+            {/* Trimming Progress */}
+            {loading && trimProgress && (
+              <fieldset className="mb-6">
+                <legend className="text-sm font-semibold text-zinc-400 mb-3">
+                  Trimming Progress
+                </legend>
+                <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-white font-mono text-sm">{Math.round(trimProgress.progress)}%</span>
+                    <span className="text-zinc-400 font-mono text-xs">{trimProgress.remainingTime ? `~${trimProgress.remainingTime}` : trimProgress.message || "Processing..."}</span>
+                  </div>
+                  <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-white transition-all duration-300 ease-out"
+                      style={{ width: `${trimProgress.progress}%` }}
+                    />
+                  </div>
+                </div>
               </fieldset>
             )}
 

@@ -23,7 +23,7 @@ import { isToolEnabled } from "@/lib/featureFlags";
 import { updateProgress, registerProcess } from "./progress/[conversionId]/route";
 import { join } from "path";
 import { randomUUID } from "crypto";
-import { mkdir } from "fs/promises";
+import { mkdir, stat as statFile } from "fs/promises";
 import { existsSync } from "fs";
 
 // ============================================================================
@@ -58,7 +58,11 @@ const isAudioFormat = (format: string): format is AudioFormat =>
 
 const VIDEO_CODECS: Record<VideoFormat, { video: string; audio: string; extraArgs?: string[] }> = {
   mp4: { video: "libx264", audio: "aac", extraArgs: ["-preset", "fast"] },
-  webm: { video: "libvpx", audio: "libvorbis", extraArgs: ["-crf", "32", "-b:v", "2M", "-speed", "5"] },
+  // VP9 encoding - balanced quality and file size
+  // CRF 31 is good quality while keeping file sizes reasonable (range 0-63)
+  // -b:v 0 enables constant quality mode
+  // -deadline good -cpu-used 2 balances speed and quality
+  webm: { video: "libvpx-vp9", audio: "libopus", extraArgs: ["-crf", "31", "-b:v", "0", "-deadline", "good", "-cpu-used", "2"] },
   mov: { video: "libx264", audio: "aac", extraArgs: ["-preset", "fast"] },
   avi: { video: "mpeg4", audio: "mp3" },
   mkv: { video: "libx264", audio: "aac", extraArgs: ["-preset", "fast"] },
@@ -239,50 +243,76 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Register the process for cancellation
       registerProcess(conversionId, process);
       console.log(`[video-converter] Process registered for cancellation: ${conversionId}`);
-    }).then((result) => {
+    }).then(async (result) => {
       // Conversion complete or failed
       if (result.success) {
-        // Get output file size and build result
-        (async () => {
-          const { stat } = await import("fs/promises");
-          let outputSize = 0;
-          try {
-            const stats = await stat(outputPath);
-            outputSize = stats.size;
-          } catch { /* ignore */ }
+        // Get output file size with retry mechanism
+        console.log(`[video-converter] FFmpeg completed successfully. Checking output file at: ${outputPath}`);
+        let outputSize = 0;
 
-          const conversionResult = {
-            id: conversionId,
-            input: { filename: uploadResult.originalName, size: uploadResult.size },
-            output: {
-              filename: outputFilename,
-              downloadUrl: `/api/download/video-converter/${outputFilename}`,
-              format: format,
-              size: outputSize,
-            },
-            duration: result.duration,
-            type: conversionType === "audio" ? "audio" : "video",
-          };
+        // Retry loop - file might be empty immediately after FFmpeg finishes
+        const maxRetries = 20;
+        const retryDelay = 250;
 
-          // Add bitrate for audio conversions
-          if (conversionType === "audio" && isAudioFormat(format)) {
-            const audioConfig = AUDIO_CODECS[format];
-            (conversionResult.output as any).bitrate = bitrate ?? audioConfig.defaultBitrate;
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+          // Wait before checking
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+
+          if (!existsSync(outputPath)) {
+            console.log(`[video-converter] Attempt ${attempt + 1}: File not found yet, waiting...`);
+            continue;
           }
 
-          updateProgress(conversionId, {
-            progress: 100,
-            frame: 0,
-            fps: 0,
-            time: "00:00:00.00",
-            bitrate: "0kbits/s",
-            speed: "1x",
-            result: conversionResult,
-          });
-          console.log(`[video-converter] Conversion complete:`, conversionResult);
-        })();
+          try {
+            const stats = await statFile(outputPath);
+            outputSize = stats.size;
+            console.log(`[video-converter] Attempt ${attempt + 1}: Size = ${outputSize} bytes`);
+
+            if (outputSize > 0) {
+              console.log(`[video-converter] Got valid file size: ${outputSize} bytes`);
+              break;
+            }
+          } catch (err) {
+            console.log(`[video-converter] Attempt ${attempt + 1}: Stat failed:`, err);
+          }
+        }
+
+        if (outputSize === 0) {
+          console.error(`[video-converter] WARNING: Could not get file size after ${maxRetries} attempts`);
+        }
+
+        const conversionResult = {
+          id: conversionId,
+          input: { filename: uploadResult.originalName, size: uploadResult.size },
+          output: {
+            filename: outputFilename,
+            downloadUrl: `/api/download/video-converter/${outputFilename}`,
+            format: format,
+            size: outputSize,
+          },
+          duration: result.duration,
+          type: conversionType === "audio" ? "audio" : "video",
+        };
+
+        // Add bitrate for audio conversions
+        if (conversionType === "audio" && isAudioFormat(format)) {
+          const audioConfig = AUDIO_CODECS[format];
+          (conversionResult.output as any).bitrate = bitrate ?? audioConfig.defaultBitrate;
+        }
+
+        updateProgress(conversionId, {
+          progress: 100,
+          frame: 0,
+          fps: 0,
+          time: "00:00:00.00",
+          bitrate: "0kbits/s",
+          speed: "1x",
+          result: conversionResult,
+        });
+        console.log(`[video-converter] Conversion complete with size: ${outputSize} bytes`);
       } else {
         // Conversion failed
+        console.error(`[video-converter] FFmpeg failed:`, result.error, result.stderr);
         updateProgress(conversionId, {
           progress: -1,
           frame: 0,
@@ -291,7 +321,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           bitrate: "0kbits/s",
           speed: "0x",
         });
-        console.log(`[video-converter] Conversion failed:`, result.error);
       }
     });
 

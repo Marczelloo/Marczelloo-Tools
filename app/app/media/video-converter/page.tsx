@@ -130,28 +130,14 @@ function VideoConverterInner(): React.JSX.Element {
           setProgress(data.progress);
 
           if (data.progress.progress >= 100) {
-            // Conversion complete - use result from progress store
-            clearInterval(pollIntervalRef.current!);
-            pollIntervalRef.current = null;
-
+            // Conversion complete - but only stop polling if we have the result
             if (data.progress.result) {
+              clearInterval(pollIntervalRef.current!);
+              pollIntervalRef.current = null;
               setResult(data.progress.result);
-            } else {
-              // Fallback if result not in progress store
-              setResult({
-                id: id,
-                input: { filename: file?.name || "", size: file?.size || 0 },
-                output: {
-                  filename: `${id}.${outputFormat}`,
-                  downloadUrl: `/api/download/video-converter/${id}.${outputFormat}`,
-                  format: outputFormat,
-                  size: 0,
-                },
-                duration: 0,
-                type: "video",
-              } as ConversionResult);
+              setLoading(false);
             }
-            setLoading(false);
+            // If no result yet, keep polling - the file size is still being calculated
           } else if (data.progress.progress < 0) {
             // Conversion failed
             clearInterval(pollIntervalRef.current!);
@@ -283,17 +269,13 @@ function VideoConverterInner(): React.JSX.Element {
                     label="Video conversion progress"
                   />
                 ) : (
-                  <div className="bg-zinc-900/50 border border-white/10 rounded-md p-6">
-                    <div className="text-center">
-                      <p className="text-4xl font-light text-white font-mono tabular-nums mb-2">
-                        0%
-                      </p>
-                      <p className="text-sm text-zinc-400 mb-4 font-mono tabular-nums">
-                        Starting...
-                      </p>
-                      <div className="w-full bg-white/5 border border-white/10 rounded-full h-1.5 overflow-hidden">
-                        <div className="bg-white h-full rounded-full animate-pulse shadow-[0_0_10px_rgba(255,255,255,0.3)]" style={{ width: "0%" }} />
-                      </div>
+                  <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-white font-mono text-sm">0%</span>
+                      <span className="text-zinc-400 font-mono text-xs">Starting...</span>
+                    </div>
+                    <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-white transition-all duration-300 ease-out" style={{ width: "0%" }} />
                     </div>
                   </div>
                 )}

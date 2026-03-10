@@ -16,14 +16,15 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { randomUUID } from "crypto";
 
-// Route segment config
-export const runtime = "nodejs";
-export const maxDuration = 300; // 5 minutes
-export const dynamic = "force-dynamic";
-
 import { type UploadResult } from "@/lib/security/upload";
-import { runFFmpeg, validateInputFile } from "@/lib/ffmpeg/runner";
+import { runFFmpeg, validateInputFile, getMediaDuration } from "@/lib/ffmpeg/runner";
 import { isToolEnabled } from "@/lib/featureFlags";
+import {
+  createJob,
+  completeJob,
+  errorJob,
+  createProgressCallback,
+} from "@/lib/ffmpeg/progress-store";
 
 // ============================================================================
 // CONFIG
@@ -45,13 +46,6 @@ function parseTimeToSeconds(timeStr: string): number {
   if (parts.length === 2) return parts[0]! * 60 + parts[1]!;
   if (parts.length === 3) return parts[0]! * 3600 + parts[1]! * 60 + parts[2]!;
   return 0;
-}
-
-function formatTime(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  return h > 0 ? `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}` : `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 // Streaming multipart parser
@@ -182,6 +176,11 @@ async function parseMultipartUpload(request: NextRequest): Promise<{
   return result;
 }
 
+// Route segment config
+export const runtime = "nodejs";
+export const maxDuration = 300; // 5 minutes
+export const dynamic = "force-dynamic";
+
 // ============================================================================
 // POST - TRIM VIDEO
 // ============================================================================
@@ -272,9 +271,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       await mkdir(outputDir, { recursive: true });
     }
 
-    const outputFilename = `${randomUUID()}.mp4`;
+    // Get video duration for progress tracking
+    let inputDuration: number | null = null;
+    try {
+      inputDuration = await getMediaDuration(uploadResult.filepath);
+    } catch {
+      console.log("[video-trimmer] Could not get duration, using default");
+    }
+
+    // Create job for progress tracking
+    const jobId = randomUUID();
+    const outputFilename = `${jobId}.mp4`;
     const outputPath = join(outputDir, outputFilename);
 
+    // Calculate trimmed duration for accurate progress tracking
+    let trimmedDuration: number | undefined;
+    if (endTime && endTime > startTime) {
+      trimmedDuration = endTime - startTime;
+    } else if (inputDuration) {
+      trimmedDuration = inputDuration - startTime;
+    }
+
+    createJob(jobId, TOOL_ID, uploadResult.filepath, uploadResult.size, trimmedDuration);
+
+    // Build FFmpeg args
     const ffmpegArgs = ["-y", "-ss", startTime.toString(), "-i", uploadResult.filepath];
 
     if (endTime && endTime > startTime) {
@@ -291,41 +311,49 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       outputPath
     );
 
-    const result = await runFFmpeg(ffmpegArgs, {
-      timeout: 5 * 60 * 1000,
-    });
-
-    if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "TRIM_FAILED", message: result.timedOut ? "Trim timed out" : result.error || "FFmpeg trim failed" } },
-        { status: 500 }
-      );
-    }
-
-    const { stat } = await import("fs/promises");
-    let outputSize = 0;
-    try {
-      const stats = await stat(outputPath);
-      outputSize = stats.size;
-    } catch { /* ignore */ }
-
-    return NextResponse.json({
+    // Return immediately with jobId
+    const response = NextResponse.json({
       success: true,
-      trim: {
-        input: { filename: uploadResult.originalName, size: uploadResult.size },
-        settings: {
-          startTime: formatTime(startTime),
-          endTime: endTime ? formatTime(endTime) : "End",
-        },
-        output: {
-          filename: outputFilename,
-          downloadUrl: `/api/download/video-trimmer/${outputFilename}`,
-          format: "mp4",
-          size: outputSize,
-        },
-        duration: result.duration,
-      },
+      jobId,
+      message: "Trim started",
     });
+
+    // Run trim in background
+    (async () => {
+      try {
+        const result = await runFFmpeg(ffmpegArgs, {
+          timeout: 5 * 60 * 1000,
+        }, createProgressCallback(jobId), trimmedDuration);
+
+        if (!result.success) {
+          errorJob(jobId, result.timedOut ? "Trim timed out" : result.error || "FFmpeg trim failed");
+          return;
+        }
+
+        // Get output file size
+        const { stat } = await import("fs/promises");
+        let outputSize = 0;
+        try {
+          const stats = await stat(outputPath);
+          outputSize = stats.size;
+        } catch {
+          // Ignore stat errors
+        }
+
+        const downloadUrl = `/api/download/video-trimmer/${outputFilename}`;
+        completeJob(jobId, outputPath, outputSize, downloadUrl, outputFilename);
+
+        console.log(`[video-trimmer] Job ${jobId} completed. Output: ${outputSize} bytes`);
+      } catch (err) {
+        console.error(`[video-trimmer] Job ${jobId} error:`, err);
+        errorJob(jobId, err instanceof Error ? err.message : "Unknown trim error");
+      }
+    })().catch((err) => {
+      console.error("[video-trimmer] Background error:", err);
+      errorJob(jobId, err instanceof Error ? err.message : "Unknown error");
+    });
+
+    return response;
   } catch (error) {
     console.error("Video trim error:", error);
     const message = error instanceof Error ? error.message : "An unexpected error occurred";
