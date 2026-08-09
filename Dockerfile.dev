@@ -1,7 +1,7 @@
 FROM node:20-alpine
 
 # Install FFmpeg, yt-dlp, and system dependencies (including vips for sharp)
-RUN apk add --no-cache ffmpeg ffmpeg-libs yt-dlp git vips
+RUN apk add --no-cache ffmpeg ffmpeg-libs yt-dlp git vips chromium poppler-utils
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate

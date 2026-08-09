@@ -8,33 +8,40 @@
  */
 
 import { type NextRequest, NextResponse } from "next/server";
+import { getToolById } from "@/lib/featureFlags";
 import { guardToolRouteAuto } from "@/lib/security";
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
-  // Guard: Returns 403 if tool is disabled, 503 if maintenance mode
-  const guardResponse = guardToolRouteAuto(request);
-  if (guardResponse) {
-    return guardResponse;
+type ToolRouteContext = { params: Promise<{ tool: string }> };
+
+export async function POST(request: NextRequest, context: ToolRouteContext): Promise<NextResponse> {
+  const { tool } = await context.params;
+  const definition = getToolById(tool);
+  if (!definition) {
+    return NextResponse.json({ success: false, error: { code: "TOOL_NOT_FOUND", message: `Unknown tool: ${tool}` } }, { status: 404 });
   }
 
-  // Tool is enabled - process the request
-  // In a real implementation, this would route to the specific tool processor
+  if (!definition.enabled) {
+    return NextResponse.json({ success: false, error: { code: "TOOL_DISABLED", message: "This tool is currently disabled" } }, { status: 403 });
+  }
 
+  const guardResponse = guardToolRouteAuto(request);
+  if (guardResponse) return guardResponse;
   return NextResponse.json({
     success: false,
-    error: "Tool handler not implemented",
-  });
+    error: { code: "USE_TOOL_ENDPOINT", message: `Use the dedicated endpoint for ${definition.name}` },
+  }, { status: 404 });
 }
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
-  // Guard: Returns 403 if tool is disabled
-  const guardResponse = guardToolRouteAuto(request);
-  if (guardResponse) {
-    return guardResponse;
+export async function GET(request: NextRequest, context: ToolRouteContext): Promise<NextResponse> {
+  const { tool } = await context.params;
+  const definition = getToolById(tool);
+  if (!definition) {
+    return NextResponse.json({ success: false, error: { code: "TOOL_NOT_FOUND", message: `Unknown tool: ${tool}` } }, { status: 404 });
   }
-
-  // Return tool status/info
+  const guardResponse = guardToolRouteAuto(request);
+  if (guardResponse) return guardResponse;
   return NextResponse.json({
-    status: "available",
+    status: definition.enabled ? "available" : "disabled",
+    tool: { id: definition.id, name: definition.name, route: definition.route },
   });
 }

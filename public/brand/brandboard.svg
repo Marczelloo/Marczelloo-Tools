@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title description">
+  <title id="title">Marczelloo Tools brandboard</title>
+  <desc id="description">Monochrome brand system with logo, colors, typography, shapes, and icon rules.</desc>
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#FFFFFF" stroke-opacity="0.035"/>
+    </pattern>
+  </defs>
+
+  <rect width="1600" height="1000" fill="#000000"/>
+  <rect width="1600" height="1000" fill="url(#grid)"/>
+
+  <g font-family="Inter, Geist, Arial, sans-serif">
+    <g transform="translate(72 64)">
+      <rect width="48" height="48" rx="6" fill="#FFFFFF"/>
+      <path d="M10.5 31.5V16.5L18 24L25.5 16.5V31.5M31.5 31.5H39" fill="none" stroke="#000000" stroke-width="3.4" stroke-linecap="square"/>
+      <text x="66" y="25" fill="#FFFFFF" font-size="22" font-weight="650" letter-spacing="-0.5">Marczelloo Tools</text>
+      <text x="66" y="47" fill="#71717A" font-family="JetBrains Mono, Geist Mono, monospace" font-size="11" letter-spacing="1.5">MONOCHROME UTILITY WORKSPACE</text>
+    </g>
+    <text x="1528" y="88" fill="#52525B" text-anchor="end" font-family="JetBrains Mono, Geist Mono, monospace" font-size="11" letter-spacing="1.5">BRAND SYSTEM / 01</text>
+
+    <line x1="72" y1="144" x2="1528" y2="144" stroke="#FFFFFF" stroke-opacity="0.1"/>
+
+    <g transform="translate(72 192)">
+      <text fill="#71717A" font-family="JetBrains Mono, Geist Mono, monospace" font-size="11" letter-spacing="1.5">01 / PRIMARY MARK</text>
+      <rect y="36" width="440" height="310" rx="4" fill="#0A0A0B" stroke="#FFFFFF" stroke-opacity="0.1"/>
+      <rect x="88" y="84" width="176" height="176" rx="22" fill="#FFFFFF"/>
+      <path d="M126.5 199.5V144.5L154 172L181.5 144.5V199.5M203.5 199.5H231" fill="none" stroke="#000000" stroke-width="12.4" stroke-linecap="square" stroke-linejoin="miter"/>
+      <text x="288" y="126" fill="#FFFFFF" font-size="20" font-weight="650">Utility tile</text>
+      <text x="288" y="151" fill="#71717A" font-size="13">White field</text>
+      <text x="288" y="171" fill="#71717A" font-size="13">Black command mark</text>
+      <text x="288" y="214" fill="#A1A1AA" font-family="JetBrains Mono, Geist Mono, monospace" font-size="11">32 / 24 / 16 PX</text>
+      <g transform="translate(288 236)">
+        <rect width="32" height="32" rx="4" fill="#FFFFFF"/>
+        <path d="M7 21V11L12 16L17 11V21M21 21H25" fill="none" stroke="#000000" stroke-width="2.25" stroke-linecap="square"/>
+        <g transform="translate(48 4) scale(.75)">
+          <rect width="32" height="32" rx="4" fill="#FFFFFF"/>
+          <path d="M7 21V11L12 16L17 11V21M21 21H25" fill="none" stroke="#000000" stroke-width="2.25" stroke-linecap="square"/>
+        </g>
+        <g transform="translate(88 8) scale(.5)">
+          <rect width="32" height="32" rx="4" fill="#FFFFFF"/>
+          <path d="M7 21V11L12 16L17 11V21M21 21H25" fill="none" stroke="#000000" stroke-width="2.25" stroke-linecap="square"/>
+        </g>
+      </g>
+      <text y="378" fill="#71717A" font-size="13">The mark combines an M-shaped command path with a terminal cursor.</text>
+    </g>
+
+    <g transform="translate(560 192)">
+      <text fill="#71717A" font-family="JetBrains Mono, Geist Mono, monospace" font-size="11" letter-spacing="1.5">02 / COLOR</text>
+      <g transform="translate(0 36)">
+        <g><rect width="112" height="128" rx="4" fill="#000000" stroke="#FFFFFF" stroke-opacity="0.16"/><text x="12" y="94" fill="#FFFFFF" font-size="12" font-weight="600">Black</text><text x="12" y="114" fill="#71717A" font-family="monospace" font-size="10">#000000</text></g>
+        <g transform="translate(124)"><rect width="112" height="128" rx="4" fill="#0A0A0B" stroke="#FFFFFF" stroke-opacity="0.1"/><text x="12" y="94" fill="#FFFFFF" font-size="12" font-weight="600">Canvas</text><text x="12" y="114" fill="#71717A" font-family="monospace" font-size="10">#0A0A0B</text></g>
+        <g transform="translate(248)"><rect width="112" height="128" rx="4" fill="#111113" stroke="#FFFFFF" stroke-opacity="0.1"/><text x="12" y="94" fill="#FFFFFF" font-size="12" font-weight="600">Surface</text><text x="12" y="114" fill="#71717A" font-family="monospace" font-size="10">#111113</text></g>
+        <g transform="translate(372)"><rect width="112" height="128" rx="4" fill="#18181B" stroke="#FFFFFF" stroke-opacity="0.1"/><text x="12" y="94" fill="#FFFFFF" font-size="12" font-weight="600">Raised</text><text x="12" y="114" fill="#71717A" font-family="monospace" font-size="10">#18181B</text></g>
+      </g>
+      <g transform="translate(0 176)">
+        <g><rect width="112" height="128" rx="4" fill="#FFFFFF"/><text x="12" y="94" fill="#000000" font-size="12" font-weight="600">Paper</text><text x="12" y="114" fill="#52525B" font-family="monospace" font-size="10">#FFFFFF</text></g>
+        <g transform="translate(124)"><rect width="112" height="128" rx="4" fill="#A1A1AA"/><text x="12" y="94" fill="#000000" font-size="12" font-weight="600">Secondary</text><text x="12" y="114" fill="#3F3F46" font-family="monospace" font-size="10">#A1A1AA</text></g>
+        <g transform="translate(248)"><rect width="112" height="128" rx="4" fill="#71717A"/><text x="12" y="94" fill="#FFFFFF" font-size="12" font-weight="600">Tertiary</text><text x="12" y="114" fill="#D4D4D8" font-family="monospace" font-size="10">#71717A</text></g>
+        <g transform="translate(372)"><rect width="112" height="128" rx="4" fill="#52525B"/><text x="12" y="94" fill="#FFFFFF" font-size="12" font-weight="600">Muted</text><text x="12" y="114" fill="#D4D4D8" font-family="monospace" font-size="10">#52525B</text></g>
+      </g>
+      <text y="342" fill="#71717A" font-size="13">Color is functional: white for action, zinc for hierarchy, status hues for feedback only.</text>
+    </g>
+
+    <g transform="translate(1092 192)">
+      <text fill="#71717A" font-family="JetBrains Mono, Geist Mono, monospace" font-size="11" letter-spacing="1.5">03 / TYPOGRAPHY</text>
+      <text y="86" fill="#FFFFFF" font-size="62" font-weight="700" letter-spacing="-2.5">Work.</text>
+      <text y="126" fill="#A1A1AA" font-size="18" font-weight="500">Geist / Inter · precise, compact, neutral</text>
+      <line y1="160" x2="436" y2="160" stroke="#FFFFFF" stroke-opacity="0.1"/>
+      <text y="208" fill="#FFFFFF" font-size="24" font-weight="700" letter-spacing="-.5">Tool heading / 24 Bold</text>
+      <text y="250" fill="#A1A1AA" font-size="14">Interface copy stays concise and readable.</text>
+      <text y="292" fill="#71717A" font-family="JetBrains Mono, Geist Mono, monospace" font-size="12" letter-spacing="1.2">LABEL / DATA / MEASUREMENT</text>
+      <text y="330" fill="#52525B" font-family="JetBrains Mono, Geist Mono, monospace" font-size="11">0123456789 · 8PX BASE RHYTHM</text>
+    </g>
+
+    <line x1="72" y1="610" x2="1528" y2="610" stroke="#FFFFFF" stroke-opacity="0.1"/>
+
+    <g transform="translate(72 658)">
+      <text fill="#71717A" font-family="JetBrains Mono, Geist Mono, monospace" font-size="11" letter-spacing="1.5">04 / ICON SYSTEM</text>
+      <text y="42" fill="#FFFFFF" font-size="18" font-weight="650">Lucide outline · one glyph per tool</text>
+      <text y="68" fill="#71717A" font-size="13">24px grid · 1.5px stroke · currentColor · fill reserved for active state</text>
+      <g transform="translate(0 100)" fill="none" stroke="#A1A1AA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <g><rect width="64" height="64" rx="4" fill="#111113" stroke="#FFFFFF" stroke-opacity=".1"/><path d="M22 19h16l4 4v22H22zM38 19v6h6M29 31l8 5-8 5z" transform="scale(.72) translate(9 8)"/></g>
+        <g transform="translate(80)"><rect width="64" height="64" rx="4" fill="#111113" stroke="#FFFFFF" stroke-opacity=".1"/><path d="M18 22h28M18 32h18M18 42h24"/></g>
+        <g transform="translate(160)"><rect width="64" height="64" rx="4" fill="#111113" stroke="#FFFFFF" stroke-opacity=".1"/><path d="M20 18v20a6 6 0 0 0 6 6h20M44 18v20a6 6 0 0 1-6 6H18M18 28h28"/></g>
+        <g transform="translate(240)"><rect width="64" height="64" rx="4" fill="#111113" stroke="#FFFFFF" stroke-opacity=".1"/><path d="M26 20l-8 12 8 12M38 20l8 12-8 12"/></g>
+        <g transform="translate(320)"><rect width="64" height="64" rx="4" fill="#111113" stroke="#FFFFFF" stroke-opacity=".1"/><path d="M20 22v-4h4M40 18h4v4M44 40v4h-4M24 44h-4v-4M25 28h14M25 34h14M25 40h9"/></g>
+      </g>
+    </g>
+
+    <g transform="translate(560 658)">
+      <text fill="#71717A" font-family="JetBrains Mono, Geist Mono, monospace" font-size="11" letter-spacing="1.5">05 / SHAPE &amp; DEPTH</text>
+      <g transform="translate(0 42)">
+        <rect width="146" height="92" rx="4" fill="#111113" stroke="#FFFFFF" stroke-opacity=".1"/>
+        <text x="16" y="40" fill="#FFFFFF" font-size="14" font-weight="600">Surface</text>
+        <text x="16" y="64" fill="#71717A" font-family="monospace" font-size="11">RADIUS 4</text>
+        <rect x="162" width="146" height="92" rx="6" fill="#18181B" stroke="#FFFFFF" stroke-opacity=".15"/>
+        <text x="178" y="40" fill="#FFFFFF" font-size="14" font-weight="600">Control</text>
+        <text x="178" y="64" fill="#71717A" font-family="monospace" font-size="11">RADIUS 6</text>
+        <rect x="324" width="160" height="92" rx="4" fill="#FFFFFF"/>
+        <text x="344" y="40" fill="#000000" font-size="14" font-weight="650">Primary action</text>
+        <text x="344" y="64" fill="#52525B" font-family="monospace" font-size="11">BLACK / WHITE</text>
+      </g>
+      <text y="170" fill="#71717A" font-size="13">Borders establish structure. Shadows appear only on elevated processing surfaces.</text>
+    </g>
+
+    <g transform="translate(1092 658)">
+      <text fill="#71717A" font-family="JetBrains Mono, Geist Mono, monospace" font-size="11" letter-spacing="1.5">06 / BRAND RULES</text>
+      <g transform="translate(0 40)">
+        <circle cx="6" cy="6" r="3" fill="#FFFFFF"/><text x="22" y="11" fill="#A1A1AA" font-size="13">Keep the interface monochrome.</text>
+        <circle cx="6" cy="42" r="3" fill="#FFFFFF"/><text x="22" y="47" fill="#A1A1AA" font-size="13">Use color only for status and generated output.</text>
+        <circle cx="6" cy="78" r="3" fill="#FFFFFF"/><text x="22" y="83" fill="#A1A1AA" font-size="13">Assign one unique icon to every tool.</text>
+        <circle cx="6" cy="114" r="3" fill="#FFFFFF"/><text x="22" y="119" fill="#A1A1AA" font-size="13">Prefer compact labels and square geometry.</text>
+        <circle cx="6" cy="150" r="3" fill="#FFFFFF"/><text x="22" y="155" fill="#A1A1AA" font-size="13">Never use emoji as interface icons.</text>
+      </g>
+    </g>
+
+    <line x1="72" y1="944" x2="1528" y2="944" stroke="#FFFFFF" stroke-opacity="0.1"/>
+    <text x="72" y="976" fill="#52525B" font-family="JetBrains Mono, Geist Mono, monospace" font-size="10" letter-spacing="1.2">MARCZELLOO TOOLS · TOOLS THAT JUST WORK · VERSION 1.0</text>
+    <text x="1528" y="976" fill="#52525B" text-anchor="end" font-family="JetBrains Mono, Geist Mono, monospace" font-size="10">32 × 32 MASTER MARK</text>
+  </g>
+</svg>

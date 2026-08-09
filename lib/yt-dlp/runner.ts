@@ -4,10 +4,9 @@
  * Wrapper for yt-dlp CLI to extract formats and download media
  */
 
-import { spawn } from "child_process";
+import { spawnYtdlp } from "./command";
 import { type YtdlpInfo, type YtdlpResult, type StreamOptions } from "./types";
 
-const YTDLP_PATH = process.env.YTDLP_PATH || "yt-dlp";
 const TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
 interface RunOptions {
@@ -20,11 +19,12 @@ async function runYtdlp(options: RunOptions): Promise<YtdlpResult> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-  return new Promise((resolve) => {
-    const proc = spawn(YTDLP_PATH, args, {
-      signal: controller.signal as AbortSignal,
-      shell: false,
-    });
+  return new Promise(async (resolve) => {
+    try {
+      const proc = await spawnYtdlp(args, {
+        signal: controller.signal as AbortSignal,
+        shell: false,
+      });
 
     let stdout = "";
     let stderr = "";
@@ -58,14 +58,21 @@ async function runYtdlp(options: RunOptions): Promise<YtdlpResult> {
       }
     });
 
-    proc.on("error", (err) => {
+      proc.on("error", (err) => {
+        clearTimeout(timeoutId);
+        if (err.name === "AbortError") {
+          resolve({ success: false, timedOut: true, error: "Timeout" });
+        } else {
+          resolve({ success: false, error: err.message });
+        }
+      });
+    } catch (error) {
       clearTimeout(timeoutId);
-      if (err.name === "AbortError") {
-        resolve({ success: false, timedOut: true, error: "Timeout" });
-      } else {
-        resolve({ success: false, error: err.message });
-      }
-    });
+      resolve({
+        success: false,
+        error: error instanceof Error ? error.message : "yt-dlp is unavailable",
+      });
+    }
   });
 }
 
@@ -109,21 +116,26 @@ export function streamYtdlp(options: StreamOptions): ReadableStream<Uint8Array> 
     ? formatId
     : `${formatId}+bestaudio`;
 
-  const proc = spawn(YTDLP_PATH, [
-    "-f",
-    formatSelector,
-    "-o",
-    "-",
-    "--no-playlist",
-    "--merge-output-format",
-    "mp4",
-    url,
-  ], {
-    shell: false,
-  });
+  let proc: Awaited<ReturnType<typeof spawnYtdlp>> | null = null;
 
   return new ReadableStream({
-    start(controller) {
+    async start(controller) {
+      try {
+        proc = await spawnYtdlp([
+          "-f",
+          formatSelector,
+          "-o",
+          "-",
+          "--no-playlist",
+          "--merge-output-format",
+          "mp4",
+          url,
+        ]);
+      } catch (error) {
+        controller.error(error);
+        return;
+      }
+
       proc.stdout?.on("data", (chunk) => {
         controller.enqueue(new Uint8Array(chunk));
       });
@@ -151,7 +163,7 @@ export function streamYtdlp(options: StreamOptions): ReadableStream<Uint8Array> 
     },
 
     cancel() {
-      proc.kill();
+      proc?.kill();
     },
   });
 }

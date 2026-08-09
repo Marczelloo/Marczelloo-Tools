@@ -46,6 +46,24 @@ interface ParsedMultipart {
   fields: Record<string, string>;
 }
 
+const uploadLocks = new Map<string, Promise<void>>();
+
+async function withUploadLock<T>(uploadId: string, operation: () => Promise<T>): Promise<T> {
+  const previous = uploadLocks.get(uploadId) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => { release = resolve; });
+  const tail = previous.then(() => current);
+  uploadLocks.set(uploadId, tail);
+  await previous;
+
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (uploadLocks.get(uploadId) === tail) uploadLocks.delete(uploadId);
+  }
+}
+
 // ============================================================================
 // HELPERS
 // ============================================================================
@@ -65,6 +83,10 @@ function getSessionPath(uploadId: string): string {
 
 function getChunkPath(uploadId: string, chunkIndex: number): string {
   return join(CHUNK_DIR, `${uploadId}.chunk.${chunkIndex}`);
+}
+
+function isSafeUploadId(uploadId: string): boolean {
+  return /^[A-Za-z0-9_-]{1,100}$/.test(uploadId);
 }
 
 async function readSession(uploadId: string): Promise<UploadSession | null> {
@@ -244,7 +266,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const totalSize = totalSizeStr ? parseInt(totalSizeStr, 10) : 0;
 
     // Validation
-    if (!uploadId || !file || isNaN(chunkIndex) || isNaN(totalChunks)) {
+    if (!uploadId || !isSafeUploadId(uploadId) || !file || !Number.isInteger(chunkIndex) || !Number.isInteger(totalChunks) || totalChunks < 1 || totalSize < 1) {
       return NextResponse.json(
         { success: false, error: { code: "INVALID_REQUEST", message: "Missing required fields" } },
         { status: 400 }
@@ -265,80 +287,82 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Load or create session
-    let session = await readSession(uploadId);
+    return await withUploadLock(uploadId, async () => {
+      // Load or create session
+      let session = await readSession(uploadId);
 
-    if (!session) {
-      session = {
-        uploadId,
-        filename,
-        mimeType,
-        totalChunks,
-        totalSize,
-        receivedChunks: new Set(),
-        createdAt: Date.now(),
-        metadata: metadataStr ? JSON.parse(metadataStr) : undefined,
-      };
-      await writeSession(session);
-    }
+      if (!session) {
+        session = {
+          uploadId,
+          filename,
+          mimeType,
+          totalChunks,
+          totalSize,
+          receivedChunks: new Set(),
+          createdAt: Date.now(),
+          metadata: metadataStr ? JSON.parse(metadataStr) : undefined,
+        };
+        await writeSession(session);
+      }
 
     // Validate chunk index
-    if (chunkIndex < 0 || chunkIndex >= session.totalChunks) {
-      return NextResponse.json(
-        { success: false, error: { code: "INVALID_CHUNK_INDEX", message: "Invalid chunk index" } },
-        { status: 400 }
-      );
-    }
+      if (chunkIndex < 0 || chunkIndex >= session.totalChunks) {
+        return NextResponse.json(
+          { success: false, error: { code: "INVALID_CHUNK_INDEX", message: "Invalid chunk index" } },
+          { status: 400 }
+        );
+      }
 
     // Check if chunk already received (idempotent)
-    if (session.receivedChunks.has(chunkIndex)) {
+      if (session.receivedChunks.has(chunkIndex)) {
+        return NextResponse.json({
+          success: true,
+          chunkIndex,
+          received: session.receivedChunks.size,
+          total: session.totalChunks,
+          duplicate: true,
+        });
+      }
+
+    // Save chunk
+      const chunkPath = getChunkPath(uploadId, chunkIndex);
+      await writeFile(chunkPath, file.data);
+
+    // Update session
+      session.receivedChunks.add(chunkIndex);
+      await writeSession(session);
+
+    // Check if upload complete
+      if (session.receivedChunks.size === session.totalChunks) {
+        console.log(`[ChunkUpload] All ${session.totalChunks} chunks received, assembling file...`);
+        const { filepath, size } = await assembleFile(session);
+
+      // Extract the UUID filename from the filepath for the fileToken
+        const assembledFilename = filepath.split(/[/\\]/).pop() || "";
+        console.log(`[ChunkUpload] Assembly complete: ${assembledFilename} (${size} bytes)`);
+
+        return NextResponse.json({
+          success: true,
+          complete: true,
+          file: {
+            filepath,
+            filename: assembledFilename, // UUID filename for fileToken
+            originalName: session.filename, // Original user filename
+            mimeType: session.mimeType,
+            size,
+          },
+          metadata: session.metadata,
+        });
+      }
+
+    // Return progress
       return NextResponse.json({
         success: true,
         chunkIndex,
         received: session.receivedChunks.size,
         total: session.totalChunks,
-        duplicate: true,
+        progress: (session.receivedChunks.size / session.totalChunks) * 100,
       });
-    }
-
-    // Save chunk
-    const chunkPath = getChunkPath(uploadId, chunkIndex);
-    await writeFile(chunkPath, file.data);
-
-    // Update session
-    session.receivedChunks.add(chunkIndex);
-    await writeSession(session);
-
-    // Check if upload complete
-    if (session.receivedChunks.size === session.totalChunks) {
-      console.log(`[ChunkUpload] All ${session.totalChunks} chunks received, assembling file...`);
-      const { filepath, size } = await assembleFile(session);
-
-      // Extract the UUID filename from the filepath for the fileToken
-      const assembledFilename = filepath.split(/[/\\]/).pop() || "";
-      console.log(`[ChunkUpload] Assembly complete: ${assembledFilename} (${size} bytes)`);
-
-      return NextResponse.json({
-        success: true,
-        complete: true,
-        file: {
-          filepath,
-          filename: assembledFilename, // UUID filename for fileToken
-          originalName: session.filename, // Original user filename
-          mimeType: session.mimeType,
-          size,
-        },
-        metadata: session.metadata,
-      });
-    }
-
-    // Return progress
-    return NextResponse.json({
-      success: true,
-      chunkIndex,
-      received: session.receivedChunks.size,
-      total: session.totalChunks,
-      progress: (session.receivedChunks.size / session.totalChunks) * 100,
     });
   } catch (error) {
     console.error("Chunk upload error:", error);

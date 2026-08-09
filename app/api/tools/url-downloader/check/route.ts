@@ -11,6 +11,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { isToolEnabled } from "@/lib/featureFlags";
 import { getYtdlpFormatsUniversal } from "@/lib/yt-dlp/runner";
+import { fetchRemoteUrl, RemoteUrlError, validateRemoteUrl } from "@/lib/security/remote-url";
 
 const TOOL_ID = "url-downloader";
 
@@ -20,15 +21,6 @@ const DIRECT_MEDIA_EXTENSIONS = [
   ".mp3", ".m4a", ".ogg", ".wav", ".flac", ".aac",
   ".gif", ".webp", ".jpg", ".jpeg", ".png",
 ];
-
-function isValidUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
 
 function looksLikeDirectMedia(url: string): boolean {
   const urlLower = url.toLowerCase();
@@ -42,7 +34,7 @@ async function fetchHead(url: string): Promise<Response> {
   const timeoutId = setTimeout(() => controller.abort(), 10000);
 
   try {
-    const response = await fetch(url, {
+    const response = await fetchRemoteUrl(url, {
       method: "HEAD",
       redirect: "follow",
       signal: controller.signal,
@@ -116,15 +108,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    if (!isValidUrl(url)) {
-      return NextResponse.json(
-        { success: false, error: { code: "INVALID_URL", message: "Invalid URL" } },
-        { status: 400 }
-      );
+    try { await validateRemoteUrl(url); }
+    catch (error) {
+      return NextResponse.json({ success: false, error: { code: "INVALID_URL", message: error instanceof RemoteUrlError ? error.message : "Invalid public URL" } }, { status: 400 });
     }
 
-    // Strategy: Try yt-dlp first (supports 1000+ sites)
-    // Fall back to direct download only if yt-dlp fails AND URL looks like direct media
+    // Direct media URLs should bypass yt-dlp. Some direct MP4 links are reported by
+    // yt-dlp as a successful page with no formats, which leaves the UI unusable.
+    if (looksLikeDirectMedia(url)) {
+      try {
+        return await tryDirectDownload(url);
+      } catch (error) {
+        // If the URL only looks like media but cannot be fetched as a file, continue
+        // with yt-dlp so supported provider URLs still get a chance to resolve.
+        if (error instanceof RemoteUrlError) {
+          throw error;
+        }
+      }
+    }
+
+    // Strategy: Try yt-dlp for provider/page URLs (supports 1000+ sites).
 
     const ytdlpResult = await getYtdlpFormatsUniversal(url);
 
@@ -206,21 +209,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
-    // yt-dlp failed - check if URL looks like a direct media file
-    if (looksLikeDirectMedia(url)) {
-      return await tryDirectDownload(url);
-    }
-
     // Neither worked - return error with yt-dlp error message
+    const isDependencyError = ytdlpResult.error?.includes("yt-dlp is not installed") ?? false;
     return NextResponse.json(
       {
         success: false,
         error: {
-          code: "UNSUPPORTED_URL",
+          code: isDependencyError ? "DEPENDENCY_MISSING" : "UNSUPPORTED_URL",
           message: ytdlpResult.error ?? "This URL is not supported. Try a direct media link instead.",
         },
       },
-      { status: 400 }
+      { status: isDependencyError ? 503 : 400 }
     );
 
   } catch (error) {

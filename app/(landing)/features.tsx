@@ -1,41 +1,37 @@
 import { Container, Surface } from "@/components/layout";
+import { Bolt, Focus, Globe2, Lightbulb, ShieldCheck, Wrench } from "lucide-react";
 
 const features = [
   {
-    icon: "🔒",
+    icon: ShieldCheck,
     title: "Secure & Private",
     description:
       "Files processed locally, auto-deleted after 20 minutes. Your data never leaves your control.",
   },
   {
-    icon: "⚡",
+    icon: Bolt,
     title: "Lightning Fast",
-    description:
-      "Optimized processing with efficient resource usage. No waiting, no queue.",
+    description: "Optimized processing with efficient resource usage. No waiting, no queue.",
   },
   {
-    icon: "🎯",
+    icon: Focus,
     title: "Focused Experience",
-    description:
-      "No ads, no tracking, no distractions. Just clean utilities that work.",
+    description: "No ads, no tracking, no distractions. Just clean utilities that work.",
   },
   {
-    icon: "🛠️",
+    icon: Wrench,
     title: "Modular Tools",
-    description:
-      "Video, audio, image, and developer tools. Pick what you need.",
+    description: "Video, audio, image, and developer tools. Pick what you need.",
   },
   {
-    icon: "🌍",
+    icon: Globe2,
     title: "Works Everywhere",
-    description:
-      "Browser-based, no installation required. Works on any device.",
+    description: "Browser-based, no installation required. Works on any device.",
   },
   {
-    icon: "💡",
+    icon: Lightbulb,
     title: "Modern Design",
-    description:
-      "Clean, dark-first interface designed for focus and productivity.",
+    description: "Clean, dark-first interface designed for focus and productivity.",
   },
 ];
 
@@ -56,19 +52,14 @@ export function LandingFeatures(): React.JSX.Element {
         {/* Features grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature) => (
-            <Surface
-              key={feature.title}
-              variant="default"
-              padding="lg"
-              className="group"
-            >
-              <span className="text-4xl mb-4 block">{feature.icon}</span>
-              <h3 className="text-lg font-semibold text-content-primary mb-2">
-                {feature.title}
-              </h3>
-              <p className="text-sm text-content-tertiary">
-                {feature.description}
-              </p>
+            <Surface key={feature.title} variant="default" padding="lg" className="group">
+              <feature.icon
+                aria-hidden="true"
+                className="w-8 h-8 mb-4 text-content-secondary"
+                strokeWidth={1.5}
+              />
+              <h3 className="text-lg font-semibold text-content-primary mb-2">{feature.title}</h3>
+              <p className="text-sm text-content-tertiary">{feature.description}</p>
             </Surface>
           ))}
         </div>

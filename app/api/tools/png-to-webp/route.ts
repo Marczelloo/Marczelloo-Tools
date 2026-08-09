@@ -20,6 +20,7 @@ import { runFFmpeg, validateInputFile } from "@/lib/ffmpeg/runner";
 import { isToolEnabled } from "@/lib/featureFlags";
 import { join } from "path";
 import { randomUUID } from "crypto";
+import { mkdir } from "fs/promises";
 
 // ============================================================================
 // CONFIG
@@ -138,7 +139,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Generate output filename
     const outputFilename = `${randomUUID()}.webp`;
-    const outputPath = join("./tmp/processed/png-to-webp", outputFilename);
+    const outputDir = "./tmp/processed/png-to-webp";
+    await mkdir(outputDir, { recursive: true });
+    const outputPath = join(outputDir, outputFilename);
 
     // Build FFmpeg arguments for PNG to WEBP conversion
     // Using libwebp with quality setting

@@ -26,17 +26,20 @@ function generateUuidV4(): string {
 }
 
 function generateUuidV1(): string {
-  const now = Date.now();
-  const random = Math.random().toString(16).slice(2, 10);
-  const timeHex = now.toString(16).padStart(12, "0");
-  return `${timeHex.slice(0, 8)}-${timeHex.slice(8, 12)}-1xxx-yxxx-${random}xxxxxx`.replace(
-    /[xy]/g,
-    (c) => {
-      const r = (Math.random() * 16) | 0;
-      const v = c === "x" ? r : (r & 0x3) | 0x8;
-      return v.toString(16);
-    }
-  );
+  const randomBytes = new Uint8Array(8);
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) crypto.getRandomValues(randomBytes);
+  else for (let i = 0; i < randomBytes.length; i++) randomBytes[i] = Math.floor(Math.random() * 256);
+
+  // UUID v1 timestamps are 100ns intervals since 1582-10-15.
+  const timestamp = (BigInt(Date.now()) + BigInt("12219292800000")) * BigInt("10000");
+  const timeLow = Number(timestamp & BigInt("0xffffffff")).toString(16).padStart(8, "0");
+  const timeMid = Number((timestamp >> BigInt("32")) & BigInt("0xffff")).toString(16).padStart(4, "0");
+  const timeHigh = (Number((timestamp >> BigInt("48")) & BigInt("0x0fff")) | 0x1000).toString(16).padStart(4, "0");
+  const clockSequence = (((randomBytes[0] ?? 0) << 8) | (randomBytes[1] ?? 0)) & 0x3fff;
+  const clock = (clockSequence | 0x8000).toString(16).padStart(4, "0");
+  randomBytes[2] = (randomBytes[2] ?? 0) | 0x01; // multicast bit for a random node ID
+  const node = Array.from(randomBytes.slice(2, 8), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${timeLow}-${timeMid}-${timeHigh}-${clock}-${node}`;
 }
 
 function UuidGeneratorInner(): React.JSX.Element {

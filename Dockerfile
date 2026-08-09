@@ -4,7 +4,7 @@
 FROM node:20-alpine AS deps
 
 # Install FFmpeg, yt-dlp, and system dependencies (including vips for sharp)
-RUN apk add --no-cache ffmpeg ffmpeg-libs yt-dlp vips
+RUN apk add --no-cache ffmpeg ffmpeg-libs yt-dlp vips chromium poppler-utils
 
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
@@ -23,7 +23,7 @@ RUN pnpm install --frozen-lockfile --prod=false
 FROM node:20-alpine AS builder
 
 # Install FFmpeg, yt-dlp, and system dependencies (including vips for sharp)
-RUN apk add --no-cache ffmpeg ffmpeg-libs yt-dlp vips-dev
+RUN apk add --no-cache ffmpeg ffmpeg-libs yt-dlp vips-dev chromium poppler-utils
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
@@ -46,7 +46,7 @@ RUN pnpm build
 FROM node:20-alpine AS runner
 
 # Install FFmpeg, yt-dlp, and system dependencies (including vips for sharp)
-RUN apk add --no-cache ffmpeg ffmpeg-libs yt-dlp vips
+RUN apk add --no-cache ffmpeg ffmpeg-libs yt-dlp vips chromium poppler-utils
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
@@ -55,6 +55,7 @@ WORKDIR /app
 # Set environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs

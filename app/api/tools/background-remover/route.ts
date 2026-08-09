@@ -84,34 +84,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const outputFilename = `${randomUUID()}.png`;
     const outputPath = join(outputDir, outputFilename);
 
-    // Try to use @imgly/background-removal if available
-    // Fall back to a simpler approach if not
-    try {
-      // Dynamic import for optional dependency
-      const removeBackground = await import("@imgly/background-removal").then(m => m.removeBackground).catch(() => null);
-
-      if (removeBackground) {
-        // Use the library
-        const imageBlob = await removeBackground(uploadResult.filepath, {
-          progress: () => {}, // Silence progress
-        });
-        const imageArrayBuffer = await imageBlob.arrayBuffer();
-        await writeFile(outputPath, Buffer.from(imageArrayBuffer));
-      } else {
-        // Fallback: Just copy the file and return (no actual background removal)
-        // In production, you'd want to install the library
-        const { copyFile } = await import("fs/promises");
-        await copyFile(uploadResult.filepath, outputPath);
-      }
-    } catch (bgError) {
-      console.error("Background removal error:", bgError);
-      // Fallback: use sharp to make a simple transparent version
-      const sharp = (await import("sharp")).default;
-      await sharp(uploadResult.filepath)
-        .flatten({ background: { r: 0, g: 0, b: 0, alpha: 0 } })
-        .png()
-        .toFile(outputPath);
-    }
+    const removeBackground = await import("@imgly/background-removal").then((module) => module.removeBackground);
+    const imageBlob = await removeBackground(uploadResult.filepath, { progress: () => {} });
+    await writeFile(outputPath, Buffer.from(await imageBlob.arrayBuffer()));
 
     // Get output size
     const { stat } = await import("fs/promises");

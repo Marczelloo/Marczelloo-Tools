@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { PageHeader, Surface, Container } from "@/components/layout";
 import { ToolProvider, useTool } from "@/lib/tool-context";
 import type { ToolDefinition } from "@/lib/featureFlags";
-import { TactileFormatGrid, type FormatOption } from "@/components/tool-ui/TactileFormatGrid";
+import { TactileFormatGrid } from "@/components/tool-ui/TactileFormatGrid";
 import { TactileButton } from "@/components/tool-ui/TactileButton";
 
 function Base64EncoderInner(): React.JSX.Element {

@@ -10,7 +10,7 @@ function WebsiteScreenshotInner(): React.JSX.Element {
   const [url, setUrl] = useState("");
   const [viewport, setViewport] = useState({ width: 1280, height: 720 });
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ screenshot: { url: string; title: string; description: string; viewport: { width: number; height: number }; note: string } } | null>(null);
+  const [result, setResult] = useState<{ screenshot: { url: string; title: string; description: string; viewport: { width: number; height: number }; format: string; size: number; downloadUrl: string } } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleCapture = useCallback(async () => {
@@ -91,9 +91,9 @@ function WebsiteScreenshotInner(): React.JSX.Element {
                     <div><p className="text-zinc-500">URL</p><p className="text-white font-mono text-xs break-all">{result.screenshot.url}</p></div>
                     <div><p className="text-zinc-500">Viewport</p><p className="text-white font-mono">{result.screenshot.viewport.width}x{result.screenshot.viewport.height}</p></div>
                   </div>
-                  <div className="p-3 bg-zinc-950 rounded text-xs text-zinc-500">
-                    {result.screenshot.note}
-                  </div>
+                  <a href={result.screenshot.downloadUrl} download className="inline-flex px-4 py-2 bg-white text-black rounded-md text-sm font-medium hover:bg-zinc-200 transition-colors">
+                    Download {result.screenshot.format.toUpperCase()} ({Math.round(result.screenshot.size / 1024)} KB)
+                  </a>
                 </div>
               </fieldset>
             )}

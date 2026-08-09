@@ -19,7 +19,7 @@ export const progressStore = new Map<string, {
   bitrate: string;
   speed: string;
   remainingTime?: string;
-  result?: any; // Store full conversion result when complete
+  result?: unknown; // Store full conversion result when complete
   cancelled?: boolean; // Flag to indicate cancellation
 }>();
 
@@ -29,7 +29,7 @@ export const processStore = new Map<string, ChildProcess>();
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ conversionId: string }> }
-) {
+): Promise<NextResponse> {
   const { conversionId } = await params;
 
   const progressData = progressStore.get(conversionId);
@@ -46,7 +46,7 @@ export async function GET(
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ conversionId: string }> }
-) {
+): Promise<NextResponse> {
   const { conversionId } = await params;
 
   // Mark as cancelled in progress store
@@ -101,9 +101,9 @@ export function updateProgress(
     bitrate: string;
     speed: string;
     remainingTime?: string;
-    result?: any;
+    result?: unknown;
   }
-) {
+): void {
   // Get existing data and merge with new data (preserving result if already set)
   const existing = progressStore.get(conversionId);
 
@@ -125,7 +125,7 @@ export function updateProgress(
 /**
  * Register an FFmpeg process for a conversion
  */
-export function registerProcess(conversionId: string, process: ChildProcess) {
+export function registerProcess(conversionId: string, process: ChildProcess): void {
   processStore.set(conversionId, process);
 
   // Clean up when process exits

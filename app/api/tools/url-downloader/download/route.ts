@@ -12,7 +12,8 @@ import { type NextRequest, NextResponse } from "next/server";
 import { isToolEnabled } from "@/lib/featureFlags";
 import { getYtdlpFormatsUniversal } from "@/lib/yt-dlp/runner";
 import { runFFmpeg } from "@/lib/ffmpeg/runner";
-import { spawn } from "child_process";
+import { spawnYtdlp } from "@/lib/yt-dlp/command";
+import { fetchRemoteUrl, RemoteUrlError, validateRemoteUrl } from "@/lib/security/remote-url";
 
 const TOOL_ID = "url-downloader";
 
@@ -27,15 +28,6 @@ function looksLikeDirectMedia(url: string): boolean {
   return DIRECT_MEDIA_EXTENSIONS.some(ext =>
     urlLower.includes(ext + "?") || urlLower.endsWith(ext)
   );
-}
-
-function isValidUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 function getFilenameFromUrl(url: string): string {
@@ -72,11 +64,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    if (!isValidUrl(url)) {
-      return NextResponse.json(
-        { success: false, error: "Invalid URL" },
-        { status: 400 }
-      );
+    try { await validateRemoteUrl(url); }
+    catch (error) {
+      return NextResponse.json({ success: false, error: error instanceof RemoteUrlError ? error.message : "Invalid public URL" }, { status: 400 });
     }
 
     // If formatId provided, use yt-dlp
@@ -104,7 +94,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 }
 
 async function handleDirectDownload(url: string, convertToMp3?: boolean): Promise<NextResponse> {
-  const response = await fetch(url, {
+  const response = await fetchRemoteUrl(url, {
     headers: { "User-Agent": "Mozilla/5.0 (compatible; MarczellooTools/1.0)" },
   });
 
@@ -285,19 +275,28 @@ interface DownloadResult {
 }
 
 async function runYtdlpDownload(url: string, formatSelector: string, outputPath: string): Promise<DownloadResult> {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     console.log("[yt-dlp] Spawning process with format:", formatSelector);
 
-    const ytdlpProc = spawn("yt-dlp", [
-      "-f", formatSelector,
-      "-o", outputPath,
-      "--no-playlist",
-      "--no-check-certificates",
-      "--merge-output-format", "mp4",
-      "--embed-metadata",
-      "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      url,
-    ], { shell: false });
+    let ytdlpProc: Awaited<ReturnType<typeof spawnYtdlp>>;
+    try {
+      ytdlpProc = await spawnYtdlp([
+        "-f", formatSelector,
+        "-o", outputPath,
+        "--no-playlist",
+        "--no-check-certificates",
+        "--merge-output-format", "mp4",
+        "--embed-metadata",
+        "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        url,
+      ]);
+    } catch (error) {
+      resolve({
+        success: false,
+        error: error instanceof Error ? error.message : "yt-dlp is unavailable",
+      });
+      return;
+    }
 
     // Set timeout
     const timeout = setTimeout(() => {

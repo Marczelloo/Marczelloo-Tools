@@ -35,6 +35,11 @@ interface DecodedJwt {
   payloadRaw: string;
 }
 
+function base64UrlToBytes(value: string): Uint8Array {
+  const base64 = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  return Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+}
+
 // ============================================================================
 // JWT DECODER COMPONENT
 // ============================================================================
@@ -43,6 +48,8 @@ function JwtDecoderInner(): React.JSX.Element {
   const { tool } = useTool();
   const [input, setInput] = useState("");
   const [decoded, setDecoded] = useState<DecodedJwt | null>(null);
+  const [secret, setSecret] = useState("");
+  const [signatureValid, setSignatureValid] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -83,6 +90,7 @@ function JwtDecoderInner(): React.JSX.Element {
         headerRaw,
         payloadRaw,
       });
+      setSignatureValid(null);
       setError(null);
     } catch (e) {
       const err = e as Error;
@@ -96,6 +104,36 @@ function JwtDecoderInner(): React.JSX.Element {
     const timer = setTimeout(() => decodeJwt(input), 200);
     return () => clearTimeout(timer);
   }, [input, decodeJwt]);
+
+  useEffect(() => {
+    if (!decoded || decoded.header.alg !== "HS256" || !secret) {
+      setSignatureValid(null);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const key = await crypto.subtle.importKey(
+          "raw",
+          new TextEncoder().encode(secret),
+          { name: "HMAC", hash: "SHA-256" },
+          false,
+          ["verify"]
+        );
+        const valid = await crypto.subtle.verify(
+          "HMAC",
+          key,
+          base64UrlToBytes(decoded.signature) as unknown as BufferSource,
+          new TextEncoder().encode(`${decoded.headerRaw}.${decoded.payloadRaw}`)
+        );
+        if (!cancelled) setSignatureValid(valid);
+      } catch {
+        if (!cancelled) setSignatureValid(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [decoded, secret]);
 
   const copyToClipboard = useCallback(async (text: string, key: string) => {
     await navigator.clipboard.writeText(text);
@@ -144,6 +182,13 @@ function JwtDecoderInner(): React.JSX.Element {
             >
               Sample
             </button>
+            <input
+              type="password"
+              value={secret}
+              onChange={(e) => setSecret(e.target.value)}
+              placeholder="HS256 secret (optional)"
+              className="ml-auto w-56 px-3 py-1.5 bg-black border border-white/10 rounded text-xs text-white font-mono focus:outline-none focus:border-white/30"
+            />
             <button
               onClick={clearAll}
               className="px-3 py-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
@@ -283,7 +328,9 @@ function JwtDecoderInner(): React.JSX.Element {
                     <span className="px-2 py-0.5 text-xs font-medium bg-zinc-800 text-white rounded">
                       SIGNATURE
                     </span>
-                    <span className="text-xs text-zinc-500">Verify Signature</span>
+                    <span className="text-xs text-zinc-500">
+                      {signatureValid === null ? "HS256 verification needs a secret" : signatureValid ? "Signature valid" : "Signature invalid"}
+                    </span>
                   </div>
                   <button
                     onClick={() => copyToClipboard(decoded.signature, "signature")}
@@ -318,7 +365,7 @@ export default function JwtDecoderPage(): React.JSX.Element {
   const tool: ToolDefinition = {
     id: "jwt-decoder",
     name: "JWT Decoder",
-    description: "Decode and verify JWT tokens",
+    description: "Decode JWT tokens and verify HS256 signatures",
     category: "dev",
     accent: "blue",
     layout: "split-panel",

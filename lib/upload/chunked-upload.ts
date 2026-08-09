@@ -101,7 +101,7 @@ export async function chunkedUpload(
   // Track progress
   let uploadedBytes = 0;
   let chunksCompleted = 0;
-  let startTime = Date.now();
+  const startTime = Date.now();
   let lastProgressTime = startTime;
 
   const updateProgress = (status: UploadProgress["status"] = "uploading") => {
@@ -222,18 +222,23 @@ export async function chunkedUpload(
   updateProgress();
 
   try {
-    // Upload chunks sequentially (simpler and more reliable)
+    // Upload chunks in bounded batches. The API is idempotent per chunk, so
+    // retries remain safe while large uploads can use the configured limit.
     let finalResult: UploadResult | null = null;
+    const concurrencyLimit = Math.max(1, Math.floor(concurrency));
 
-    for (let i = 0; i < totalChunks; i++) {
+    for (let i = 0; i < totalChunks && !finalResult; i += concurrencyLimit) {
       checkCancelled();
 
-      console.log(`[ChunkedUpload] Uploading chunk ${i + 1}/${totalChunks}`);
-      const result = await uploadChunk(i);
-      if (result) {
+      const indexes = Array.from(
+        { length: Math.min(concurrencyLimit, totalChunks - i) },
+        (_, offset) => i + offset
+      );
+      console.log(`[ChunkedUpload] Uploading chunks ${i + 1}-${i + indexes.length}/${totalChunks}`);
+      const batchResults = await Promise.all(indexes.map((index) => uploadChunk(index)));
+      finalResult = batchResults.find((result): result is UploadResult => result !== null) ?? null;
+      if (finalResult) {
         console.log("[ChunkedUpload] Got final result from server");
-        finalResult = result;
-        break;
       }
     }
 

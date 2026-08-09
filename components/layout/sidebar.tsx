@@ -6,36 +6,9 @@ import { cn } from "@/lib/utils";
 import { useFeatureFlags } from "@/lib/hooks";
 import { useToolNavigation } from "@/lib/tool-navigation-context";
 import type { ToolDefinition, ToolCategory } from "@/lib/featureFlags";
-import {
-  Film,
-  Music,
-  Image,
-  Code,
-  Globe,
-  Lock,
-  Terminal,
-  ChevronRight,
-  Cpu,
-  File,
-  Scissors,
-  Volume2,
-  Palette,
-  Grid3X3,
-  Eye,
-  Link2,
-  Hash,
-  QrCode,
-  Binary,
-  Clock,
-  Sparkles,
-  Layers,
-  FileType,
-  Camera,
-  Wand2,
-  Merge,
-  Split,
-  Zap,
-} from "lucide-react";
+import { ChevronRight, type LucideIcon } from "lucide-react";
+import { BrandMark } from "@/components/icons/brand-mark";
+import { categoryIconMap, getToolIcon } from "@/components/icons/tool-icons";
 
 // ============================================================================
 // TYPES
@@ -59,76 +32,33 @@ interface CategoryState {
 
 const categoryConfig: Record<
   ToolCategory,
-  { label: string; icon: React.ComponentType<{ className?: string }>; description: string }
+  { label: string; icon: LucideIcon; description: string }
 > = {
   media: {
     label: "Media",
-    icon: Film,
+    icon: categoryIconMap.media,
     description: "Video, audio processing",
   },
   image: {
     label: "Images",
-    icon: Image,
+    icon: categoryIconMap.image,
     description: "Image processing tools",
   },
   document: {
     label: "Documents",
-    icon: File,
+    icon: categoryIconMap.document,
     description: "PDF and document tools",
   },
   web: {
     label: "Web Tools",
-    icon: Globe,
+    icon: categoryIconMap.web,
     description: "Web utilities",
   },
   dev: {
     label: "Dev Tools",
-    icon: Code,
+    icon: categoryIconMap.dev,
     description: "Developer utilities",
   },
-};
-
-// ============================================================================
-// TOOL ICON MAPPING
-// ============================================================================
-
-const toolIconMap: Record<string, React.ComponentType<{ className?: string }>> = {
-  "video-compressor": Film,
-  "video-converter": Film,
-  "video-trimmer": Scissors,
-  "audio-converter": Music,
-  "audio-compressor": Music,
-  "audio-trimmer": Scissors,
-  "mp4-to-mp3": Music,
-  "volume-booster": Volume2,
-  "image-compressor": Image,
-  "image-converter": Image,
-  "background-remover": Wand2,
-  "png-to-webp": Image,
-  "image-cropper": Scissors,
-  "pdf-merge": Merge,
-  "pdf-split": Split,
-  "pdf-compressor": File,
-  "pdf-to-word": FileType,
-  "ocr": Eye,
-  "json-formatter": Code,
-  "hash-generator": Hash,
-  "base64-encoder": Binary,
-  "url-downloader": Link2,
-  "url-shortener": Link2,
-  "website-screenshot": Camera,
-  "qr-generator": QrCode,
-  "uuid-generator": Zap,
-  "timestamp-converter": Clock,
-  "color-palette": Palette,
-  "css-gradient": Palette,
-  "flexbox-playground": Grid3X3,
-  "regex-tester": Code,
-  "jwt-decoder": Lock,
-  "meta-preview": Eye,
-  "favicon-generator": Sparkles,
-  "box-shadow": Layers,
-  "grid-generator": Grid3X3,
 };
 
 // ============================================================================
@@ -150,10 +80,11 @@ interface ToolLinkProps {
 }
 
 function ToolLink({ tool, isActive, onSelect, collapsed }: ToolLinkProps): React.JSX.Element {
-  const IconComponent = toolIconMap[tool.id] ?? Cpu;
+  const IconComponent = getToolIcon(tool.id);
 
   return (
     <button
+      type="button"
       onClick={onSelect}
       className={cn(
         "w-full flex items-center gap-3 px-4 py-2 text-sm transition-all",
@@ -165,7 +96,7 @@ function ToolLink({ tool, isActive, onSelect, collapsed }: ToolLinkProps): React
       )}
       title={collapsed ? tool.name : undefined}
     >
-      <IconComponent className="w-4 h-4 flex-shrink-0" />
+      <IconComponent aria-hidden="true" className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
       {!collapsed && <span className="truncate">{tool.name}</span>}
     </button>
   );
@@ -195,6 +126,7 @@ function CategorySection({
   collapsed,
 }: CategorySectionProps): React.JSX.Element | null {
   const config = categoryConfig[category];
+  const CategoryIcon = config.icon;
   const enabledTools = tools.filter((t) => t.enabled);
 
   // Don't render if no enabled tools
@@ -221,20 +153,20 @@ function CategorySection({
       {/* Category header */}
       <div className="px-4 mb-2">
         <button
+          type="button"
           onClick={onToggle}
-          className="flex items-center gap-2 w-full"
+          aria-expanded={isExpanded}
+          className="flex min-h-10 items-center gap-2 w-full text-zinc-600 hover:text-zinc-400 transition-colors"
         >
-          <span
+          <ChevronRight
+            aria-hidden="true"
             className={cn(
-              "text-[10px] font-mono text-zinc-600 uppercase tracking-wider transition-transform duration-200",
+              "w-3 h-3 transition-transform duration-200",
               isExpanded ? "rotate-90" : ""
             )}
-          >
-            ▸
-          </span>
-          <span className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider">
-            {config.label}
-          </span>
+          />
+          <CategoryIcon aria-hidden="true" className="w-3.5 h-3.5" strokeWidth={1.5} />
+          <span className="text-[10px] font-mono uppercase tracking-wider">{config.label}</span>
         </button>
       </div>
 
@@ -310,27 +242,28 @@ export function Sidebar({ className }: SidebarProps): React.JSX.Element | null {
               href="/app"
               className="flex items-center gap-3 hover:opacity-80 transition-opacity"
             >
-              <div className="w-7 h-7 bg-white rounded-sm flex items-center justify-center">
-                <Terminal className="w-4 h-4 text-black" />
-              </div>
+              <BrandMark className="w-7 h-7" />
               <span className="font-semibold text-sm tracking-tight">Marczelloo</span>
             </Link>
           </div>
         ) : (
           <Link
             href="/app"
+            aria-label="Marczelloo Tools home"
             className="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-white/5 transition-colors mx-auto"
           >
-            <div className="w-6 h-6 bg-white rounded-sm flex items-center justify-center">
-              <Terminal className="w-3 h-3 text-black" />
-            </div>
+            <BrandMark className="w-6 h-6" />
           </Link>
         )}
         <button
+          type="button"
           onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-expanded={!collapsed}
           className="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-white/5 transition-colors"
         >
           <ChevronRight
+            aria-hidden="true"
             className={cn(
               "w-4 h-4 text-zinc-500 transition-transform",
               collapsed ? "rotate-0" : "rotate-180"

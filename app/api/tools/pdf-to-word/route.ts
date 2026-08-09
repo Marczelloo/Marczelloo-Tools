@@ -15,6 +15,7 @@ import { join } from "path";
 import { randomUUID } from "crypto";
 import { mkdir, unlink, writeFile } from "fs/promises";
 import { existsSync } from "fs";
+import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
 
 const TOOL_ID = "pdf-to-word";
 
@@ -57,50 +58,32 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       await mkdir(outputDir, { recursive: true });
     }
 
-    // Extract text from PDF using pdf-lib (simplified approach)
-    const { PDFDocument } = await import("pdf-lib");
     const { readFile } = await import("fs/promises");
 
     const pdfBytes = await readFile(uploadResult.filepath);
-    const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const pdf = await pdfjs.getDocument({ data: new Uint8Array(pdfBytes), useWorkerFetch: false }).promise;
+    const paragraphs: Paragraph[] = [
+      new Paragraph({ text: `Converted from: ${uploadResult.originalName}`, heading: HeadingLevel.HEADING_1 }),
+    ];
 
-    // Get text from each page
-    // Note: pdf-lib doesn't directly extract text, so we create a basic HTML/RTF
-    const totalPages = pdfDoc.getPageCount();
-    const pageDimensions = pdfDoc.getPages().map((page) => ({
-      width: page.getWidth(),
-      height: page.getHeight(),
-    }));
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+      const page = await pdf.getPage(pageNumber);
+      const content = await page.getTextContent();
+      const text = content.items
+        .map((item) => ("str" in item ? item.str : ""))
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
+      paragraphs.push(new Paragraph({ children: [new TextRun({ text: `Page ${pageNumber}`, bold: true })] }));
+      paragraphs.push(new Paragraph(text || "[No extractable text on this page]"));
+    }
 
-    // Create a simple HTML document (can be opened in Word)
-    const htmlContent = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>${uploadResult.originalName}</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 40px; }
-    .page { margin-bottom: 40px; page-break-after: always; }
-    .page-number { color: #666; font-size: 12px; }
-  </style>
-</head>
-<body>
-  <h1>Converted from: ${uploadResult.originalName}</h1>
-  <p><em>Note: This is a basic conversion. For full formatting preservation, use a dedicated PDF-to-Word service.</em></p>
-  ${pageDimensions.map((_, i) => `
-  <div class="page">
-    <p class="page-number">Page ${i + 1} of ${totalPages}</p>
-    <p>[Content from page ${i + 1}]</p>
-  </div>
-  `).join('')}
-</body>
-</html>`;
-
-    const outputFilename = `${randomUUID()}.doc`;
+    const doc = new Document({ sections: [{ children: paragraphs }] });
+    const docxBytes = await Packer.toBuffer(doc);
+    const outputFilename = `${randomUUID()}.docx`;
     const outputPath = join(outputDir, outputFilename);
-
-    // Write as .doc (Word can open HTML files with .doc extension)
-    await writeFile(outputPath, htmlContent);
+    await writeFile(outputPath, docxBytes);
 
     const { stat } = await import("fs/promises");
     let outputSize = 0;
@@ -115,14 +98,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({
       success: true,
       conversion: {
-        input: { filename: uploadResult.originalName, size: uploadResult.size, pages: totalPages },
+        input: { filename: uploadResult.originalName, size: uploadResult.size, pages: pdf.numPages },
         output: {
           filename: outputFilename,
           downloadUrl: `/api/download/pdf-to-word/${outputFilename}`,
-          format: "doc",
+          format: "docx",
           size: outputSize,
         },
-        note: "Basic text extraction. For full formatting preservation, use a dedicated PDF-to-Word service.",
+        note: "Text and page structure were extracted. Complex visual formatting, images and embedded fonts may not be preserved.",
       },
     });
   } catch (error) {

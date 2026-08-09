@@ -35,6 +35,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const mode = formData.get("mode")?.toString() || "all"; // "all", "range", "single"
     const pageRange = formData.get("pageRange")?.toString(); // e.g., "1-3" or "1,3,5"
 
+    if (mode !== "all" && mode !== "range") {
+      return NextResponse.json({ success: false, error: { code: "INVALID_MODE", message: "Unsupported split mode" } }, { status: 400 });
+    }
+    if (mode === "range" && (!pageRange || !/^\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*$/.test(pageRange))) {
+      return NextResponse.json({ success: false, error: { code: "INVALID_PAGE_RANGE", message: "Use a range like 1-3 or a list like 1,3,5" } }, { status: 400 });
+    }
+
     if (!(file instanceof File)) {
       return NextResponse.json({ success: false, error: { code: "MISSING_FILE", message: "No PDF file provided" } }, { status: 400 });
     }
@@ -125,6 +132,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           });
         }
       }
+    }
+
+    if (outputFiles.length === 0) {
+      return NextResponse.json({ success: false, error: { code: "EMPTY_PAGE_RANGE", message: "The selected page range contains no valid pages" } }, { status: 400 });
     }
 
     // Clean up input

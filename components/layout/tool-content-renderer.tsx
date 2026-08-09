@@ -25,6 +25,7 @@ const toolComponents: Record<string, () => Promise<{ default: ComponentType }>> 
   "image-compressor": () => import("@/app/app/image/image-compressor/page"),
   "background-remover": () => import("@/app/app/image/background-remover/page"),
   "image-cropper": () => import("@/app/app/image/image-cropper/page"),
+  "png-to-webp": () => import("@/app/app/image/png-to-webp/page"),
 
   // Document tools
   "pdf-merge": () => import("@/app/app/document/pdf-merge/page"),

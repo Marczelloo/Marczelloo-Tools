@@ -315,7 +315,8 @@ export async function processUpload(
   },
   config: UploadConfig
 ): Promise<UploadResult> {
-  const { name: originalName, type: declaredMimeType, size, buffer } = file;
+  const { name: originalName, type: declaredMimeType, buffer } = file;
+  const size = buffer.length;
 
   // 1. Check for empty file
   if (!buffer || buffer.length === 0) {

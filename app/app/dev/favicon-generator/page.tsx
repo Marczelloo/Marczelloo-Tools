@@ -18,7 +18,7 @@ function FaviconGeneratorInner(): React.JSX.Element {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ favicon: { files: { filename: string; size: number; downloadUrl: string }[]; htmlSnippet: string; sessionId: string } } | null>(null);
+  const [result, setResult] = useState<{ favicon: { files: { filename: string; size: number; downloadUrl: string }[]; htmlSnippet: string; sessionId: string; downloadAllUrl: string } } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -91,12 +91,15 @@ function FaviconGeneratorInner(): React.JSX.Element {
                 <legend className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">2. Favicons Generated</legend>
                 <div className="bg-zinc-900/50 border border-white/10 rounded-md p-4">
                   <div className="grid grid-cols-2 gap-2 mb-4">
-                    {result.favicon.files.slice(0, 6).map((f, i) => (
+                    {result.favicon.files.map((f, i) => (
                       <a key={i} href={f.downloadUrl} className="px-3 py-2 bg-black border border-white/10 rounded text-sm text-zinc-400 hover:text-white transition-colors" download>
                         {f.filename}
                       </a>
                     ))}
                   </div>
+                  <a href={result.favicon.downloadAllUrl} download className="block w-full mb-4 px-3 py-2 text-center bg-white text-black rounded text-sm font-medium hover:bg-zinc-200 transition-colors">
+                    Download all (.zip)
+                  </a>
                   <div className="mt-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-semibold text-zinc-500 uppercase font-mono">HTML Snippet</span>

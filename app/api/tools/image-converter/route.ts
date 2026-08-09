@@ -20,6 +20,7 @@ import { runFFmpeg, validateInputFile } from "@/lib/ffmpeg/runner";
 import { isToolEnabled } from "@/lib/featureFlags";
 import { join } from "path";
 import { randomUUID } from "crypto";
+import { mkdir } from "fs/promises";
 
 // ============================================================================
 // CONFIG
@@ -240,7 +241,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const originalNameWithoutExt = uploadResult.originalName.replace(/\.[^.]+$/, "");
     const outputFilename = `${originalNameWithoutExt}.${outputFormat}`;
     const safeOutputFilename = `${randomUUID()}.${outputFormat}`;
-    const outputPath = join("./tmp/processed/image-converter", safeOutputFilename);
+    const outputDir = "./tmp/processed/image-converter";
+    await mkdir(outputDir, { recursive: true });
+    const outputPath = join(outputDir, safeOutputFilename);
 
     // Build FFmpeg arguments for conversion
     const ffmpegArgs = buildFFmpegArgs(

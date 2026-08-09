@@ -10,50 +10,20 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import { isToolEnabled } from "@/lib/featureFlags";
+import { RemoteUrlError, validateRemoteUrl } from "@/lib/security/remote-url";
+import { mkdir, stat } from "fs/promises";
+import { join } from "path";
+import { randomUUID } from "crypto";
+import { chromium } from "playwright-core";
 
 const TOOL_ID = "website-screenshot";
 
-function isValidUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-async function fetchPageInfo(url: string): Promise<{ title: string; description: string }> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; MarczellooTools/1.0)",
-      },
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      return { title: url, description: "Unable to fetch page info" };
-    }
-
-    const html = await response.text();
-
-    // Extract title
-    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-    const title = titleMatch?.[1]?.trim() ?? url;
-
-    // Extract meta description
-    const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
-    const description = descMatch?.[1]?.trim() ?? "No description available";
-
-    return { title, description };
-  } catch {
-    return { title: url, description: "Unable to fetch page info" };
-  }
+function getBrowserExecutablePath(): string | undefined {
+  return process.env.BROWSER_EXECUTABLE_PATH || (
+    process.platform === "win32"
+      ? "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+      : process.env.CHROMIUM_PATH || "/usr/bin/chromium"
+  );
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -64,43 +34,61 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
     const url = body.url as string | undefined;
-    const viewport = body.viewport || { width: 1280, height: 720 };
-    const format = body.format || "png";
+    const viewport = {
+      width: Math.min(2400, Math.max(320, Number(body.viewport?.width) || 1280)),
+      height: Math.min(2000, Math.max(240, Number(body.viewport?.height) || 720)),
+    };
+    const format = body.format === "jpeg" || body.format === "webp" ? body.format : "png";
 
     if (!url) {
       return NextResponse.json({ success: false, error: { code: "MISSING_URL", message: "Please provide a URL" } }, { status: 400 });
     }
 
-    if (!isValidUrl(url)) {
-      return NextResponse.json({ success: false, error: { code: "INVALID_URL", message: "Please enter a valid HTTP or HTTPS URL" } }, { status: 400 });
+    try { await validateRemoteUrl(url); }
+    catch (error) {
+      return NextResponse.json({ success: false, error: { code: "INVALID_URL", message: error instanceof RemoteUrlError ? error.message : "Please enter a valid public HTTP or HTTPS URL" } }, { status: 400 });
     }
 
-    // Fetch page info
-    const pageInfo = await fetchPageInfo(url);
+    const executablePath = getBrowserExecutablePath();
+    const browser = await chromium.launch({ headless: true, executablePath });
+    let screenshotPath: string | null = null;
+    try {
+      const page = await browser.newPage({ viewport });
+      await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
+      const outputDir = "./tmp/processed/website-screenshot";
+      await mkdir(outputDir, { recursive: true });
+      const filename = `${randomUUID()}.${format}`;
+      screenshotPath = join(outputDir, filename);
+      await page.screenshot({ path: screenshotPath, type: format, fullPage: false });
+      const pageInfo = { title: await page.title(), description: "" };
+      const description = await page.locator('meta[name="description"]').getAttribute("content").catch(() => null);
+      pageInfo.description = description?.trim() || "No description available";
+      const outputSize = (await stat(screenshotPath)).size;
 
-    // For a full implementation, you would use Puppeteer/Playwright here:
-    // const browser = await puppeteer.launch();
-    // const page = await browser.newPage();
-    // await page.setViewport(viewport);
-    // await page.goto(url);
-    // const screenshot = await page.screenshot({ type: format });
-    // await browser.close();
-
-    // For now, return metadata and a placeholder message
-    return NextResponse.json({
-      success: true,
-      screenshot: {
-        url,
-        title: pageInfo.title,
-        description: pageInfo.description,
-        viewport,
-        format,
-        note: "Full screenshot capture requires Puppeteer installation. This returns page metadata only.",
-        // In production: screenshotUrl: `/api/download/website-screenshot/${filename}`,
-      },
-    });
+      return NextResponse.json({
+        success: true,
+        screenshot: {
+          url,
+          title: pageInfo.title || url,
+          description: pageInfo.description,
+          viewport,
+          format,
+          filename,
+          size: outputSize,
+          downloadUrl: `/api/download/website-screenshot/${filename}`,
+        },
+      });
+    } finally {
+      await browser.close();
+    }
   } catch (error) {
     console.error("Website screenshot error:", error);
+    if (error instanceof RemoteUrlError) {
+      return NextResponse.json({ success: false, error: { code: "INVALID_URL", message: error.message } }, { status: 400 });
+    }
+    if (error instanceof Error && /executable|browser|launch/i.test(error.message)) {
+      return NextResponse.json({ success: false, error: { code: "BROWSER_UNAVAILABLE", message: "Screenshot browser is not configured. Set BROWSER_EXECUTABLE_PATH or install Chromium." } }, { status: 503 });
+    }
     return NextResponse.json({ success: false, error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } }, { status: 500 });
   }
 }

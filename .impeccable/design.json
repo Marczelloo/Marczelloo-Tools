@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-09T00:00:00.000Z",
+  "title": "Design System: Marczelloo Tools",
+  "extensions": {
+    "colorMeta": {
+      "absolute-black": {
+        "role": "primary",
+        "displayName": "Absolute Black",
+        "canonical": "#000000",
+        "tonalRamp": [
+          "#000000",
+          "#09090B",
+          "#18181B",
+          "#27272A",
+          "#3F3F46",
+          "#71717A",
+          "#D4D4D8",
+          "#FAFAFA"
+        ]
+      },
+      "paper-white": {
+        "role": "primary",
+        "displayName": "Paper White",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "#18181B",
+          "#27272A",
+          "#52525B",
+          "#71717A",
+          "#A1A1AA",
+          "#D4D4D8",
+          "#F4F4F5",
+          "#FFFFFF"
+        ]
+      },
+      "tool-surface": {
+        "role": "neutral",
+        "displayName": "Tool Surface",
+        "canonical": "#111113",
+        "tonalRamp": [
+          "#09090B",
+          "#111113",
+          "#18181B",
+          "#27272A",
+          "#3F3F46",
+          "#71717A",
+          "#D4D4D8",
+          "#FAFAFA"
+        ]
+      },
+      "secondary-zinc": {
+        "role": "neutral",
+        "displayName": "Secondary Zinc",
+        "canonical": "#A1A1AA",
+        "tonalRamp": [
+          "#18181B",
+          "#27272A",
+          "#3F3F46",
+          "#52525B",
+          "#71717A",
+          "#A1A1AA",
+          "#D4D4D8",
+          "#FAFAFA"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Landing statement and rare brand-scale headlines."
+      },
+      "title": {
+        "displayName": "Tool Title",
+        "purpose": "Tool names and primary workspace headings."
+      },
+      "body": {
+        "displayName": "Interface Body",
+        "purpose": "Instructions, descriptions, and supporting copy."
+      },
+      "label": {
+        "displayName": "Machine Label",
+        "purpose": "Formats, measurements, identifiers, and metadata."
+      },
+      "micro": {
+        "displayName": "Sidebar Micro Label",
+        "purpose": "Dense uppercase category labels in the application sidebar only."
+      }
+    },
+    "shadows": [
+      {
+        "name": "processing-elevation",
+        "value": "0 24px 48px rgba(0, 0, 0, 0.5)",
+        "purpose": "Elevated processing and result surfaces only."
+      }
+    ],
+    "motion": [
+      {
+        "name": "fast-state",
+        "value": "150ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Color, border, and background state transitions."
+      },
+      {
+        "name": "normal-state",
+        "value": "200ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Sidebar and low-frequency layout state changes."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The decisive action on a tool surface.",
+      "html": "<button class=\"ds-btn-primary\">PROCESS FILE</button>",
+      "css": ".ds-btn-primary { background:#fff; color:#000; border:0; border-radius:4px; min-height:44px; padding:12px 24px; font:500 12px/1.5 Inter,system-ui,sans-serif; letter-spacing:.08em; transition:background-color 150ms cubic-bezier(.4,0,.2,1),scale 150ms cubic-bezier(.4,0,.2,1); } .ds-btn-primary:hover { background:#E4E4E7; } .ds-btn-primary:focus-visible { outline:2px solid rgba(255,255,255,.35); outline-offset:2px; } .ds-btn-primary:active { scale:.96; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary actions that remain visually quiet.",
+      "html": "<button class=\"ds-btn-ghost\">CLEAR</button>",
+      "css": ".ds-btn-ghost { background:transparent; color:#A1A1AA; border:1px solid rgba(255,255,255,.1); border-radius:4px; min-height:44px; padding:12px 24px; font:500 12px/1.5 Inter,system-ui,sans-serif; letter-spacing:.08em; transition:color 150ms cubic-bezier(.4,0,.2,1),background-color 150ms cubic-bezier(.4,0,.2,1),border-color 150ms cubic-bezier(.4,0,.2,1); } .ds-btn-ghost:hover { color:#fff; background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.2); } .ds-btn-ghost:focus-visible { outline:2px solid rgba(255,255,255,.35); outline-offset:2px; }"
+    },
+    {
+      "name": "Tool Card",
+      "kind": "card",
+      "refersTo": "tool-card",
+      "description": "Compact dashboard entry for one utility.",
+      "html": "<article class=\"ds-tool-card\"><span class=\"ds-icon-tile\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 7h16M4 12h10M4 17h13\"/></svg></span><span><strong>JSON Formatter</strong><small>Format and validate JSON data</small></span></article>",
+      "css": ".ds-tool-card { display:flex; gap:12px; padding:16px; color:#fff; background:#111113; border:1px solid rgba(255,255,255,.1); border-radius:4px; font-family:Inter,system-ui,sans-serif; transition:background-color 150ms cubic-bezier(.4,0,.2,1),border-color 150ms cubic-bezier(.4,0,.2,1); } .ds-tool-card:hover { background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.2); } .ds-tool-card strong,.ds-tool-card small { display:block; } .ds-tool-card strong { font-size:14px; font-weight:500; } .ds-tool-card small { color:#71717A; font-size:12px; margin-top:4px; } .ds-icon-tile { display:grid; place-items:center; width:40px; height:40px; flex:none; border-radius:4px; color:#A1A1AA; background:rgba(255,255,255,.05); } .ds-icon-tile svg { width:20px; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "description": "Standard text or URL entry field.",
+      "html": "<input class=\"ds-input\" value=\"https://example.com\" aria-label=\"URL\">",
+      "css": ".ds-input { width:100%; min-height:44px; padding:10px 12px; color:#fff; background:#000; border:1px solid rgba(255,255,255,.1); border-radius:6px; font:400 14px/1.5 Inter,system-ui,sans-serif; transition:border-color 150ms cubic-bezier(.4,0,.2,1),box-shadow 150ms cubic-bezier(.4,0,.2,1); } .ds-input:hover { border-color:rgba(255,255,255,.2); } .ds-input:focus { outline:none; border-color:rgba(255,255,255,.3); box-shadow:0 0 0 2px rgba(255,255,255,.12); }"
+    },
+    {
+      "name": "Brand Mark",
+      "kind": "custom",
+      "description": "Monochrome M-command utility tile.",
+      "html": "<svg class=\"ds-brand-mark\" viewBox=\"0 0 32 32\" role=\"img\" aria-label=\"Marczelloo Tools\"><rect width=\"32\" height=\"32\" rx=\"4\"/><path d=\"M7 21V11L12 16L17 11V21M21 21H25\"/></svg>",
+      "css": ".ds-brand-mark { width:32px; height:32px; } .ds-brand-mark rect { fill:#fff; } .ds-brand-mark path { fill:none; stroke:#000; stroke-width:2.25; stroke-linecap:square; stroke-linejoin:miter; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Monochrome Utility Bench",
+    "overview": "Marczelloo Tools should feel like a focused native workspace: precise, compact, and immediately operational. The interface stays visually quiet so uploaded files, settings, progress, and output remain the most prominent information on every screen. The identity is intentionally monochrome and dark-first.",
+    "keyCharacteristics": [
+      "Pure black canvas with closely stepped zinc surfaces.",
+      "Square, low-radius geometry and fine translucent borders.",
+      "Bold sans-serif headings paired with mono labels for data and controls.",
+      "One distinctive outline icon per tool on a consistent 24px grid.",
+      "Fast, restrained interaction feedback with no ornamental motion."
+    ],
+    "rules": [
+      {
+        "name": "The Functional Color Rule",
+        "body": "Color never decorates the shell. Reserve it for status, validation, or the user's generated visual output.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono-With-A-Job Rule",
+        "body": "Use monospace only for code, data, identifiers, formats, and measurements.",
+        "section": "typography"
+      },
+      {
+        "name": "The Border-Before-Shadow Rule",
+        "body": "Add a structural border first. Use a shadow only when a surface truly sits above another surface.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do preserve the monochrome shell and reserve semantic color for feedback.",
+      "Do use the shared tool-icon registry instead of defining icon maps per page.",
+      "Do render outline icons with currentColor and a consistent 1.5px stroke.",
+      "Do keep labels short, operational, and specific to the action.",
+      "Do test the brand mark and tool glyphs at 16px as well as 32px."
+    ],
+    "donts": [
+      "Don't use emoji or Unicode symbols as interface icons.",
+      "Don't assign the same glyph to different tools merely because they share a category.",
+      "Don't introduce gradients, accent colors, or soft rounded cards into the application shell.",
+      "Don't use filled icons for inactive states or mix icon libraries on one surface.",
+      "Don't place the project mark directly on a white surface without a dark boundary or clear space."
+    ]
+  }
+}

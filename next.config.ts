@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
 
   // Increase body size limit for large file uploads
   experimental: {
-    middlewareClientMaxBodySize: "50mb",
+    proxyClientMaxBodySize: "50mb",
   },
 };
 

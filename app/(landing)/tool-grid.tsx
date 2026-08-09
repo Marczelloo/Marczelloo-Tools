@@ -137,12 +137,6 @@ export function LandingToolGrid({
           </Surface>
         )}
 
-        {/* Coming soon */}
-        <div className="mt-12 text-center">
-          <p className="text-content-muted text-sm">
-            More tools coming soon: Audio Converter, Image Compressor, Base64 Encoder, and more
-          </p>
-        </div>
       </Container>
     </section>
   );

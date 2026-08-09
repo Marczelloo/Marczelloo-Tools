@@ -9,13 +9,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { isToolEnabled } from "@/lib/featureFlags";
 import { randomUUID } from "crypto";
+import { RemoteUrlError, validateRemoteUrl } from "@/lib/security/remote-url";
+import { setJob } from "@/lib/yt-dlp/job-store";
 
 const TOOL_ID = "url-downloader";
-
-// Import job store from progress route
-declare module "../progress/[jobId]/route" {
-  export function setJob(jobId: string, data: object): void;
-}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   if (!isToolEnabled(TOOL_ID)) {
@@ -37,6 +34,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    try { await validateRemoteUrl(url); }
+    catch (error) {
+      return NextResponse.json({ success: false, error: error instanceof RemoteUrlError ? error.message : "Invalid public URL" }, { status: 400 });
+    }
+
     if (!formatId) {
       return NextResponse.json(
         { success: false, error: "Format ID required" },
@@ -47,8 +49,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Create job ID
     const jobId = randomUUID();
 
-    // Import and initialize job
-    const { setJob } = await import("../progress/[jobId]/route");
     setJob(jobId, {
       url,
       formatId,

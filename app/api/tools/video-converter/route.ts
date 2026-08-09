@@ -219,7 +219,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     try {
       inputDuration = await getMediaDuration(uploadResult.filepath);
       console.log(`[video-converter] Input duration: ${inputDuration}s`);
-    } catch (e) {
+    } catch {
       console.log(`[video-converter] Could not get duration, using default`);
     }
 
@@ -281,15 +281,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           console.error(`[video-converter] WARNING: Could not get file size after ${maxRetries} attempts`);
         }
 
+        const conversionOutput: {
+          filename: string;
+          downloadUrl: string;
+          format: OutputFormat;
+          size: number;
+          bitrate?: string;
+        } = {
+          filename: outputFilename,
+          downloadUrl: `/api/download/video-converter/${outputFilename}`,
+          format,
+          size: outputSize,
+        };
+
         const conversionResult = {
           id: conversionId,
           input: { filename: uploadResult.originalName, size: uploadResult.size },
-          output: {
-            filename: outputFilename,
-            downloadUrl: `/api/download/video-converter/${outputFilename}`,
-            format: format,
-            size: outputSize,
-          },
+          output: conversionOutput,
           duration: result.duration,
           type: conversionType === "audio" ? "audio" : "video",
         };
@@ -297,7 +305,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // Add bitrate for audio conversions
         if (conversionType === "audio" && isAudioFormat(format)) {
           const audioConfig = AUDIO_CODECS[format];
-          (conversionResult.output as any).bitrate = bitrate ?? audioConfig.defaultBitrate;
+          conversionResult.output.bitrate = bitrate ?? audioConfig.defaultBitrate;
         }
 
         updateProgress(conversionId, {

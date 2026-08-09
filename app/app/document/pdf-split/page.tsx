@@ -8,13 +8,6 @@ import { TactileDropzone } from "@/components/tool-ui/TactileDropzone";
 import { TactileFormatGrid, type FormatOption } from "@/components/tool-ui/TactileFormatGrid";
 import { TactileButton } from "@/components/tool-ui/TactileButton";
 
-function formatSize(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const units = ["B", "KB", "MB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
-}
-
 const MODE_OPTIONS: readonly FormatOption[] = [
   { value: "all", label: "All Pages", desc: "Split every page" },
   { value: "range", label: "Page Range", desc: "Custom range" },

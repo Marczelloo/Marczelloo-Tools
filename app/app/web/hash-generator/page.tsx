@@ -153,10 +153,8 @@ function HashGeneratorInner(): React.JSX.Element {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
-  const toggleAlgorithm = useCallback((algo: HashAlgorithm) => {
-    setSelectedAlgorithms((prev) =>
-      prev.includes(algo) ? prev.filter((a) => a !== algo) : [...prev, algo]
-    );
+  const toggleAlgorithm = useCallback((algorithms: string[]) => {
+    setSelectedAlgorithms(algorithms as HashAlgorithm[]);
   }, []);
 
   const generateHashes = useCallback(async () => {
@@ -219,7 +217,8 @@ function HashGeneratorInner(): React.JSX.Element {
               <TactileFormatGrid
                 options={HASH_OPTIONS}
                 values={selectedAlgorithms}
-                onChange={setSelectedAlgorithms as any}
+                multiple
+                onChange={toggleAlgorithm}
                 columns={4}
               />
             </div>

@@ -260,7 +260,6 @@ function buildFFmpegArgs(options: {
   compressionLevel?: number;
   fps?: number;
   resolution?: string;
-  twoPass?: boolean;
 }): string[] {
   const {
     inputPath,
@@ -273,7 +272,6 @@ function buildFFmpegArgs(options: {
     compressionLevel,
     fps,
     resolution,
-    twoPass: _twoPass, // Used in POST handler for 2-pass encoding logic
   } = options;
 
   const codecConfig = CODEC_CONFIG[outputFormat];
@@ -641,7 +639,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       compressionLevel,
       fps,
       resolution,
-      twoPass,
     });
 
     // Debug: log the FFmpeg command

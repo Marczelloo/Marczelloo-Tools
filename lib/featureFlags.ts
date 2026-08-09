@@ -170,6 +170,18 @@ export const toolRegistry: readonly ToolDefinition[] = [
     route: "/app/image/image-cropper",
     maxFileSize: 20,
   },
+  {
+    id: "png-to-webp",
+    name: "PNG to WebP",
+    description: "Convert PNG images to optimized WebP files",
+    category: "image",
+    accent: "blue",
+    layout: "form-heavy",
+    enabled: true,
+    route: "/app/image/png-to-webp",
+    maxFileSize: 50,
+    new: true,
+  },
 
   // ============================================================================
   // 📄 DOCUMENT TOOLS

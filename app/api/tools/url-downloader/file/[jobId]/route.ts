@@ -8,15 +8,13 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import { readFile, unlink } from "fs/promises";
+import { deleteJob, getJob } from "@/lib/yt-dlp/job-store";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ jobId: string }> }
 ): Promise<NextResponse> {
   const { jobId } = await params;
-
-  // Import job store
-  const { getJob, deleteJob } = await import("../../progress/[jobId]/route");
 
   const job = getJob(jobId);
 

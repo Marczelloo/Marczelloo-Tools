@@ -31,14 +31,20 @@ function AppHeader(): React.JSX.Element {
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 text-sm text-zinc-500">
           <span>Tools</span>
-          <ChevronRight className="w-3 h-3" />
+          <ChevronRight aria-hidden="true" className="w-3 h-3" strokeWidth={1.5} />
           <span className="text-white">{currentTool?.name ?? "Dashboard"}</span>
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <button className="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-white/5 transition-colors">
-          <ArrowUpRight className="w-4 h-4 text-zinc-500" />
-        </button>
+        <a
+          href="https://github.com/Marczelloo/Marczelloo-Tools"
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Open GitHub repository"
+          className="w-8 h-8 flex items-center justify-center rounded-sm text-zinc-500 hover:text-white hover:bg-white/5 transition-colors"
+        >
+          <ArrowUpRight aria-hidden="true" className="w-4 h-4" strokeWidth={1.5} />
+        </a>
       </div>
     </header>
   );
@@ -57,10 +63,7 @@ function StatusBar(): React.JSX.Element {
         <span className="font-mono">{currentTool?.id ?? "dashboard"}</span>
         <span>v1.0.0</span>
       </div>
-      <Link
-        href="/app/privacy"
-        className="hover:text-zinc-400 transition-colors"
-      >
+      <Link href="/app/privacy" className="hover:text-zinc-400 transition-colors">
         Privacy
       </Link>
     </footer>
@@ -110,13 +113,13 @@ function AppShellContent({ children }: { children: ReactNode }): React.JSX.Eleme
  * }
  * ```
  */
-export function AppShell({ children, className, noSidebar = false }: AppShellProps): React.JSX.Element {
+export function AppShell({
+  children,
+  className,
+  noSidebar = false,
+}: AppShellProps): React.JSX.Element {
   if (noSidebar) {
-    return (
-      <div className={cn("min-h-screen bg-background-primary", className)}>
-        {children}
-      </div>
-    );
+    return <div className={cn("min-h-screen bg-background-primary", className)}>{children}</div>;
   }
 
   return (

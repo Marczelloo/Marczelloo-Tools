@@ -15,8 +15,9 @@ import {
 import { isToolEnabled } from "@/lib/featureFlags";
 import { join } from "path";
 import { randomUUID } from "crypto";
-import { mkdir, unlink } from "fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import { existsSync } from "fs";
+import JSZip from "jszip";
 
 // ============================================================================
 // CONFIG
@@ -31,6 +32,32 @@ const UPLOAD_CONFIG = {
 };
 
 const FAVICON_SIZES = [16, 32, 48, 64, 180, 192, 512];
+
+function createIco(images: Buffer[]): Buffer {
+  const headerSize = 6;
+  const entrySize = 16;
+  const directory = Buffer.alloc(headerSize + entrySize * images.length);
+  directory.writeUInt16LE(0, 0);
+  directory.writeUInt16LE(1, 2);
+  directory.writeUInt16LE(images.length, 4);
+
+  let offset = directory.length;
+  images.forEach((image, index) => {
+    const entryOffset = headerSize + index * entrySize;
+    // PNG payloads are self-describing, and ICO accepts PNG-encoded images.
+    directory[entryOffset] = index === 0 ? 16 : 32;
+    directory[entryOffset + 1] = index === 0 ? 16 : 32;
+    directory[entryOffset + 2] = 0;
+    directory[entryOffset + 3] = 0;
+    directory.writeUInt16LE(1, entryOffset + 4);
+    directory.writeUInt16LE(32, entryOffset + 6);
+    directory.writeUInt32LE(image.length, entryOffset + 8);
+    directory.writeUInt32LE(offset, entryOffset + 12);
+    offset += image.length;
+  });
+
+  return Buffer.concat([directory, ...images]);
+}
 
 // ============================================================================
 // POST - GENERATE FAVICONS
@@ -89,37 +116,47 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const sharp = (await import("sharp")).default;
 
     const generatedFiles: { filename: string; size: number; downloadUrl: string }[] = [];
+    const generatedBuffers = new Map<string, Buffer>();
 
     // Generate each size
     for (const size of FAVICON_SIZES) {
       const filename = size === 180 ? "apple-touch-icon.png" : `favicon-${size}x${size}.png`;
       const outputPath = join(sessionDir, filename);
 
-      await sharp(uploadResult.filepath)
+      const image = await sharp(uploadResult.filepath)
         .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .png()
-        .toFile(outputPath);
+        .toBuffer();
+      await writeFile(outputPath, image);
+      generatedBuffers.set(filename, image);
 
       generatedFiles.push({
         filename,
-        size,
+        size: image.length,
         downloadUrl: `/api/download/favicon-generator/${sessionId}/${filename}`,
       });
     }
 
-    // Generate ICO file (16x16 and 32x32 combined)
-    // For simplicity, just use 32x32 PNG renamed
+    // Generate a valid ICO containing the 16x16 and 32x32 PNG payloads.
     const icoOutputPath = join(sessionDir, "favicon.ico");
-    await sharp(uploadResult.filepath)
-      .resize(32, 32, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-      .png()
-      .toFile(icoOutputPath);
+    const ico = createIco([
+      generatedBuffers.get("favicon-16x16.png")!,
+      generatedBuffers.get("favicon-32x32.png")!,
+    ]);
+    await writeFile(icoOutputPath, ico);
 
     generatedFiles.push({
       filename: "favicon.ico",
-      size: 32,
+      size: ico.length,
       downloadUrl: `/api/download/favicon-generator/${sessionId}/favicon.ico`,
     });
+
+    const zip = new JSZip();
+    for (const file of generatedFiles) {
+      zip.file(file.filename, await readFile(join(sessionDir, file.filename)));
+    }
+    const archiveFilename = "favicons.zip";
+    await writeFile(join(sessionDir, archiveFilename), await zip.generateAsync({ type: "nodebuffer" }));
 
     // Clean up input file
     if (tempInputPath) {
@@ -138,7 +175,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       favicon: {
         input: { filename: uploadResult.originalName, size: uploadResult.size },
         files: generatedFiles,
-        downloadAllUrl: `/api/download/favicon-generator/${sessionId}/all`,
+        downloadAllUrl: `/api/download/favicon-generator/${sessionId}/${archiveFilename}`,
         htmlSnippet,
         sessionId,
       },

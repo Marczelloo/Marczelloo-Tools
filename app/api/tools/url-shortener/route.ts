@@ -1,35 +1,14 @@
-/**
- * URL Shortener API
- *
- * POST /api/tools/url-shortener
- *
- * Creates shortened URLs (mock implementation for demo)
- */
-
 import { type NextRequest, NextResponse } from "next/server";
 import { isToolEnabled } from "@/lib/featureFlags";
+import { createShortLink, getShortLink } from "@/lib/url-shortener-store";
 
 const TOOL_ID = "url-shortener";
 
-// In-memory store for demo (would be database in production)
-const urlStore = new Map<string, { original: string; created: number; clicks: number }>();
-
-function generateShortCode(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let code = "";
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
-
-function isValidUrl(url: string): boolean {
+function isValidUrl(value: string): boolean {
   try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
+    const url = new URL(value);
+    return (url.protocol === "http:" || url.protocol === "https:") && !url.username && !url.password;
+  } catch { return false; }
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -38,41 +17,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const body = await request.json();
-    const url = body.url as string | undefined;
+    const body = await request.json() as { url?: unknown };
+    const url = typeof body.url === "string" ? body.url.trim() : "";
+    if (!url) return NextResponse.json({ success: false, error: { code: "MISSING_URL", message: "Please provide a URL to shorten" } }, { status: 400 });
+    if (!isValidUrl(url)) return NextResponse.json({ success: false, error: { code: "INVALID_URL", message: "Please enter a valid HTTP or HTTPS URL" } }, { status: 400 });
 
-    if (!url) {
-      return NextResponse.json({ success: false, error: { code: "MISSING_URL", message: "Please provide a URL to shorten" } }, { status: 400 });
-    }
-
-    if (!isValidUrl(url)) {
-      return NextResponse.json({ success: false, error: { code: "INVALID_URL", message: "Please enter a valid HTTP or HTTPS URL" } }, { status: 400 });
-    }
-
-    // Generate short code
-    let shortCode = generateShortCode();
-    while (urlStore.has(shortCode)) {
-      shortCode = generateShortCode();
-    }
-
-    // Store URL
-    urlStore.set(shortCode, {
-      original: url,
-      created: Date.now(),
-      clicks: 0,
-    });
-
-    // Build short URL (mock domain for demo)
-    const shortUrl = `https://mt.dev/${shortCode}`;
-
+    const { code, link } = await createShortLink(url);
+    const forwardedHost = request.headers.get("x-forwarded-host") || request.headers.get("host");
+    const forwardedProtocol = request.headers.get("x-forwarded-proto") || new URL(request.url).protocol.replace(":", "");
+    const requestOrigin = forwardedHost ? `${forwardedProtocol}://${forwardedHost}` : new URL(request.url).origin;
+    const origin = process.env.PUBLIC_APP_URL?.replace(/\/$/, "") || process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || requestOrigin;
     return NextResponse.json({
       success: true,
       shortening: {
-        original: url,
-        shortUrl,
-        shortCode,
-        createdAt: new Date().toISOString(),
-        note: "This is a demo implementation. URLs are stored in memory and will be lost on server restart.",
+        original: link.original,
+        shortUrl: `${origin}/s/${code}`,
+        shortCode: code,
+        createdAt: new Date(link.created).toISOString(),
+        clicks: link.clicks,
+        note: "Links are stored in the local application data directory.",
       },
     });
   } catch (error) {
@@ -81,30 +44,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-// GET - Redirect to original URL
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const url = new URL(request.url);
-  const code = url.searchParams.get("code");
-
-  if (!code) {
-    return NextResponse.json({ success: false, error: { code: "MISSING_CODE", message: "Please provide a short code" } }, { status: 400 });
-  }
-
-  const entry = urlStore.get(code);
-
-  if (!entry) {
-    return NextResponse.json({ success: false, error: { code: "NOT_FOUND", message: "Short URL not found" } }, { status: 404 });
-  }
-
-  // Increment clicks
-  entry.clicks++;
-
-  // Return redirect info (client handles redirect)
-  return NextResponse.json({
-    success: true,
-    redirect: {
-      original: entry.original,
-      clicks: entry.clicks,
-    },
-  });
+  const code = new URL(request.url).searchParams.get("code")?.trim();
+  if (!code) return NextResponse.json({ success: false, error: { code: "MISSING_CODE", message: "Please provide a short code" } }, { status: 400 });
+  const link = await getShortLink(code);
+  if (!link) return NextResponse.json({ success: false, error: { code: "NOT_FOUND", message: "Short URL not found" } }, { status: 404 });
+  return NextResponse.json({ success: true, redirect: { original: link.original, clicks: link.clicks } });
 }

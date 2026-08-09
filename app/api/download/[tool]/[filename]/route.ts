@@ -9,8 +9,7 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import { readFile, stat, unlink } from "fs/promises";
-import { existsSync } from "fs";
-import { join } from "path";
+import { getContentType, getDownloadPath, downloadExists } from "@/lib/downloads";
 
 // ============================================================================
 // TYPES
@@ -24,32 +23,14 @@ interface DownloadParams {
 }
 
 // ============================================================================
-// ALLOWED DIRECTORIES
-// ============================================================================
-
-const TOOL_DIRECTORIES: Record<string, string> = {
-  "mp4-to-mp3": "./tmp/processed/mp4-to-mp3",
-  "png-to-webp": "./tmp/processed/png-to-webp",
-  "image-converter": "./tmp/processed/image-converter",
-  "video-compressor": "./tmp/processed/video-compressor",
-  "video-converter": "./tmp/processed/video-converter",
-  "video-trimmer": "./tmp/processed/video-trimmer",
-  "audio-converter": "./tmp/processed/audio-converter",
-  "audio-compressor": "./tmp/processed/audio-compressor",
-  "audio-trimmer": "./tmp/processed/audio-trimmer",
-  // Add more tools as needed
-};
-
-// ============================================================================
 // GET - DOWNLOAD FILE
 // ============================================================================
 
 export async function GET(_request: NextRequest, { params }: DownloadParams): Promise<NextResponse> {
   const { tool, filename } = await params;
 
-  // Validate tool
-  const directory = TOOL_DIRECTORIES[tool];
-  if (!directory) {
+  const filepath = getDownloadPath(tool, [filename]);
+  if (!filepath) {
     return NextResponse.json(
       {
         success: false,
@@ -62,25 +43,8 @@ export async function GET(_request: NextRequest, { params }: DownloadParams): Pr
     );
   }
 
-  // Validate filename (prevent path traversal)
-  if (filename.includes("..") || filename.includes("/") || filename.includes("\\")) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "INVALID_FILENAME",
-          message: "Invalid filename",
-        },
-      },
-      { status: 400 }
-    );
-  }
-
-  // Build file path
-  const filepath = join(directory, filename);
-
   // Check if file exists
-  if (!existsSync(filepath)) {
+  if (!downloadExists(filepath)) {
     return NextResponse.json(
       {
         success: false,
@@ -98,29 +62,7 @@ export async function GET(_request: NextRequest, { params }: DownloadParams): Pr
     const fileBuffer = await readFile(filepath);
     const stats = await stat(filepath);
 
-    // Determine content type based on extension
-    const ext = filename.split(".").pop()?.toLowerCase();
-    const contentTypes: Record<string, string> = {
-      mp3: "audio/mpeg",
-      mp4: "video/mp4",
-      webm: "video/webm",
-      mov: "video/quicktime",
-      avi: "video/x-msvideo",
-      wav: "audio/wav",
-      ogg: "audio/ogg",
-      pdf: "application/pdf",
-      zip: "application/zip",
-      png: "image/png",
-      webp: "image/webp",
-      jpeg: "image/jpeg",
-      jpg: "image/jpeg",
-      gif: "image/gif",
-      bmp: "image/bmp",
-      tiff: "image/tiff",
-      tif: "image/tiff",
-    };
-
-    const contentType = contentTypes[ext ?? ""] ?? "application/octet-stream";
+    const contentType = getContentType(filename);
 
     // Create response with file
     const response = new NextResponse(fileBuffer, {

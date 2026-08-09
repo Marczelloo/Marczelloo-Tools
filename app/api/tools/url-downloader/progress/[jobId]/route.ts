@@ -7,79 +7,52 @@
  */
 
 import { type NextRequest, NextResponse } from "next/server";
-import { spawn } from "child_process";
+import { spawnYtdlp } from "@/lib/yt-dlp/command";
+import type { ChildProcess } from "child_process";
 import { join } from "path";
 import { mkdir, readdir } from "fs/promises";
-
-const YTDLP_PATH = process.env.YTDLP_PATH || "yt-dlp";
-
-// In-memory job store (in production, use Redis)
-const jobs = new Map<string, {
-  url: string;
-  formatId: string;
-  status: "pending" | "downloading" | "completed" | "error";
-  progress: number;
-  message: string;
-  outputPath?: string;
-  filename?: string;
-  error?: string;
-  hasAudio?: boolean;
-}>();
-
-export function getJob(jobId: string) {
-  return jobs.get(jobId);
-}
-
-export function setJob(jobId: string, data: Partial<typeof jobs extends Map<string, infer T> ? T : never>) {
-  const existing = jobs.get(jobId) || {
-    url: "",
-    formatId: "",
-    status: "pending" as const,
-    progress: 0,
-    message: "",
-  };
-  jobs.set(jobId, { ...existing, ...data });
-}
-
-export function deleteJob(jobId: string) {
-  jobs.delete(jobId);
-}
+import { validateRemoteUrl } from "@/lib/security/remote-url";
+import { getJob, setJob } from "@/lib/yt-dlp/job-store";
 
 // Helper to get format info
 async function getFormatInfo(url: string, formatId: string): Promise<{ hasAudio: boolean; ext: string }> {
   return new Promise((resolve) => {
-    const proc = spawn(YTDLP_PATH, [
+    const procPromise = spawnYtdlp([
       "--dump-json",
       "--no-playlist",
       "--no-check-certificates",
       url,
-    ], { shell: false });
+    ]);
 
     let stdout = "";
-    proc.stdout?.on("data", (data: Buffer) => {
-      stdout += data.toString();
-    });
+    void procPromise.then((proc) => {
+      proc.stdout?.on("data", (data: Buffer) => {
+        stdout += data.toString();
+      });
 
-    proc.on("close", (code) => {
-      if (code === 0) {
-        try {
-          const info = JSON.parse(stdout);
-          const format = info.formats?.find((f: { format_id: string }) => f.format_id === formatId);
-          if (format) {
-            const hasAudio = Boolean(format.has_audio || (format.acodec && format.acodec !== "none"));
-            resolve({ hasAudio, ext: format.ext || "mp4" });
-          } else {
+      proc.on("close", (code) => {
+        if (code === 0) {
+          try {
+            const info = JSON.parse(stdout);
+            const format = info.formats?.find((f: { format_id: string }) => f.format_id === formatId);
+            if (format) {
+              const hasAudio = Boolean(format.has_audio || (format.acodec && format.acodec !== "none"));
+              resolve({ hasAudio, ext: format.ext || "mp4" });
+            } else {
+              resolve({ hasAudio: false, ext: "mp4" });
+            }
+          } catch {
             resolve({ hasAudio: false, ext: "mp4" });
           }
-        } catch {
+        } else {
           resolve({ hasAudio: false, ext: "mp4" });
         }
-      } else {
-        resolve({ hasAudio: false, ext: "mp4" });
-      }
-    });
+      });
 
-    proc.on("error", () => {
+      proc.on("error", () => {
+        resolve({ hasAudio: false, ext: "mp4" });
+      });
+    }).catch(() => {
       resolve({ hasAudio: false, ext: "mp4" });
     });
   });
@@ -90,14 +63,14 @@ export async function GET(
   { params }: { params: Promise<{ jobId: string }> }
 ): Promise<Response> {
   const { jobId } = await params;
-  const job = jobs.get(jobId);
+  const job = getJob(jobId);
 
   if (!job) {
     return NextResponse.json({ error: "Job not found" }, { status: 404 });
   }
 
   const encoder = new TextEncoder();
-  let ytDlpProcess: ReturnType<typeof spawn> | null = null;
+  let ytDlpProcess: ChildProcess | null = null;
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -106,6 +79,7 @@ export async function GET(
       };
 
       try {
+        await validateRemoteUrl(job.url);
         // Update job status
         setJob(jobId, { status: "downloading", message: "Getting format info..." });
         send({ type: "status", status: "downloading", progress: 0, message: "Getting format info..." });
@@ -140,8 +114,9 @@ export async function GET(
           setJob(jobId, { message: `Downloading...` });
           send({ type: "status", status: "downloading", progress: 0, message: "Starting download..." });
 
-          const result = await new Promise<boolean>((resolve) => {
-            ytDlpProcess = spawn(YTDLP_PATH, [
+          const result = await new Promise<boolean>(async (resolve) => {
+            try {
+              const process = await spawnYtdlp([
               "-f", formatSelector,
               "-o", outputPath,
               "--no-playlist",
@@ -150,11 +125,12 @@ export async function GET(
               "--embed-metadata",
               "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
               job.url,
-            ], { shell: false });
+              ]);
+              ytDlpProcess = process;
 
             let stderr = "";
 
-            ytDlpProcess.stdout?.on("data", (data: Buffer) => {
+            process.stdout?.on("data", (data: Buffer) => {
               const output = data.toString();
               const lines = output.split("\n");
               for (const line of lines) {
@@ -169,7 +145,7 @@ export async function GET(
               }
             });
 
-            ytDlpProcess.stderr?.on("data", (data: Buffer) => {
+            process.stderr?.on("data", (data: Buffer) => {
               stderr += data.toString();
               const lines = data.toString().split("\n");
               for (const line of lines) {
@@ -184,7 +160,7 @@ export async function GET(
               }
             });
 
-            ytDlpProcess.on("close", (code) => {
+            process.on("close", (code) => {
               if (code === 0) {
                 resolve(true);
               } else {
@@ -197,10 +173,14 @@ export async function GET(
               }
             });
 
-            ytDlpProcess.on("error", (err) => {
+            process.on("error", (err) => {
               lastError = err.message;
               resolve(false);
             });
+            } catch (error) {
+              lastError = error instanceof Error ? error.message : "yt-dlp is unavailable";
+              resolve(false);
+            }
           });
 
           if (result) {

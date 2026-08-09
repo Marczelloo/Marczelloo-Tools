@@ -206,6 +206,42 @@ function UrlDownloaderInner(): React.JSX.Element {
     setError(null);
 
     try {
+      // Direct media links do not have a yt-dlp format ID. Use the direct
+      // download endpoint instead of creating an SSE job with a null format.
+      if (!formats && mediaInfo) {
+        const directResponse = await fetch("/api/tools/url-downloader/download", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url, convertToMp3 }),
+        });
+
+        if (!directResponse.ok) {
+          const data = await directResponse.json().catch(() => null) as { error?: string | { message?: string } } | null;
+          const message = typeof data?.error === "string"
+            ? data.error
+            : data?.error?.message ?? "Failed to download file";
+          setError(message);
+          setDownloading(false);
+          setIsFetchingFromSource(false);
+          return;
+        }
+
+        const blob = await directResponse.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = blobUrl;
+        anchor.download = mediaInfo.filename || "download";
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(blobUrl);
+        setDownloadMessage("Done!");
+        setDownloading(false);
+        setIsFetchingFromSource(false);
+        setTimeout(() => setDownloadProgress(0), 3000);
+        return;
+      }
+
       // Step 1: Start the download job
       const startResponse = await fetch("/api/tools/url-downloader/start", {
         method: "POST",
@@ -280,12 +316,12 @@ function UrlDownloaderInner(): React.JSX.Element {
         setIsFetchingFromSource(false);
       };
 
-    } catch (err) {
+    } catch {
       setError("Download failed - try again");
       setDownloading(false);
       setIsFetchingFromSource(false);
     }
-  }, [url, selectedFormat, downloading]);
+  }, [convertToMp3, formats, mediaInfo, url, selectedFormat, downloading]);
 
   const currentFormats = formats ? (
     selectedMediaType === "video+audio" ? (formats.videoAndAudio || []) :
