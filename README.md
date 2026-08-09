@@ -116,9 +116,9 @@ The recommended deployment is Docker Compose plus a Cloudflare Tunnel:
 ```bash
 git clone https://github.com/Marczelloo/Marczelloo-Tools.git
 cd Marczelloo-Tools
-docker compose up --build -d
-curl -f http://127.0.0.1:3000
-docker compose ps
+docker compose -f docker-compose.yml -f docker-compose.pi.yml up --build -d
+curl -f http://127.0.0.1:3202
+docker compose -f docker-compose.yml -f docker-compose.pi.yml ps
 ```
 
 Install and authenticate `cloudflared`, then create the tunnel and DNS route:
