@@ -139,12 +139,14 @@ export const DEFAULT_SECURITY_CONFIG: SecurityHeadersConfig = {
   enableInDev: true,
 };
 
-// Production config (stricter CSP)
+// Production config. Next.js App Router emits inline bootstrap and hydration
+// scripts in the HTML document; without this directive the page renders but
+// React never hydrates, so interactive controls do not receive event handlers.
 export const PRODUCTION_SECURITY_CONFIG: SecurityHeadersConfig = {
   ...DEFAULT_SECURITY_CONFIG,
   csp: {
     "default-src": ["'self'"],
-    "script-src": ["'self'"],
+    "script-src": ["'self'", "'unsafe-inline'"],
     "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
     "img-src": [
       "'self'",
