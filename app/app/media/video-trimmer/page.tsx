@@ -7,7 +7,14 @@ import { MediaTimeline } from "@/components/tool-ui";
 import { TactileDropzone } from "@/components/tool-ui/TactileDropzone";
 import { TactileButton } from "@/components/tool-ui/TactileButton";
 import type { ToolDefinition } from "@/lib/featureFlags";
-import { chunkedUpload, formatBytes, formatETA, type UploadProgress } from "@/lib/upload/chunked-upload";
+import {
+  chunkedUpload,
+  DEFAULT_CHUNK_SIZE,
+  DEFAULT_UPLOAD_CONCURRENCY,
+  formatBytes,
+  formatETA,
+  type UploadProgress,
+} from "@/lib/upload/chunked-upload";
 
 // ============================================================================
 // TYPES
@@ -141,8 +148,8 @@ function VideoTrimmerInner(): React.JSX.Element {
 
       try {
         const uploadResult = await chunkedUpload(selectedFile, {
-          chunkSize: 10 * 1024 * 1024, // 10MB chunks
-          concurrency: 3,
+          chunkSize: DEFAULT_CHUNK_SIZE,
+          concurrency: DEFAULT_UPLOAD_CONCURRENCY,
           signal: abortControllerRef.current.signal,
           onProgress: (progress) => {
             setUploadState({

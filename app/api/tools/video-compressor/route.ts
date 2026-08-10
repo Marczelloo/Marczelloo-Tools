@@ -15,6 +15,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import {
   processUpload,
   DEFAULT_UPLOAD_CONFIGS,
+  isWithinSandbox,
   type UploadResult,
 } from "@/lib/security/upload";
 import {
@@ -37,7 +38,7 @@ import {
 } from "@/lib/rate-limit";
 import { join } from "path";
 import { randomUUID } from "crypto";
-import { mkdir, stat } from "fs/promises";
+import { mkdir, rename, stat } from "fs/promises";
 import { existsSync } from "fs";
 
 // ============================================================================
@@ -58,6 +59,12 @@ const UPLOAD_CONFIG = {
   uploadDir: "./tmp/uploads/video-compressor",
   maxSizeBytes: 200 * 1024 * 1024, // 200MB
 };
+
+// Files assembled by /api/upload/chunk are moved into the tool's upload
+// directory without being copied through request.formData(). This keeps the
+// large file off the second request body and makes the hand-off O(1) on disk.
+const CHUNK_ASSEMBLY_DIR = "./tmp/uploads/assembly";
+const CHUNKED_FILE_TOKEN_PATTERN = /^[a-z0-9-]{36}\.[a-z0-9]{1,10}$/i;
 
 // Quality presets
 const QUALITY_PRESETS = {
@@ -142,6 +149,9 @@ const RESOLUTION_PRESETS: Record<string, { width: number; height: number }> = {
 
 async function parseFormData(request: NextRequest): Promise<{
   file: File | null;
+  uploadedFileToken?: string;
+  uploadedOriginalName?: string;
+  uploadedMimeType?: string;
   mode: "simple" | "advanced";
   // Simple mode
   preset?: SimplePreset;
@@ -157,6 +167,9 @@ async function parseFormData(request: NextRequest): Promise<{
 }> {
   const formData = await request.formData();
   const file = formData.get("file");
+  const uploadedFileToken = formData.get("uploadedFileToken")?.toString();
+  const uploadedOriginalName = formData.get("uploadedOriginalName")?.toString();
+  const uploadedMimeType = formData.get("uploadedMimeType")?.toString();
   const mode = formData.get("mode")?.toString() as "simple" | "advanced" | undefined;
 
   // Simple mode params
@@ -175,6 +188,9 @@ async function parseFormData(request: NextRequest): Promise<{
 
   return {
     file: file instanceof File ? file : null,
+    uploadedFileToken,
+    uploadedOriginalName,
+    uploadedMimeType,
     mode: mode === "advanced" ? "advanced" : "simple",
     preset: preset && SIMPLE_PRESETS[preset] ? preset : "balanced",
     quality: quality && QUALITY_PRESETS[quality] ? quality : undefined,
@@ -493,6 +509,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const {
       file,
+      uploadedFileToken,
+      uploadedOriginalName,
+      uploadedMimeType,
       mode,
       preset,
       quality,
@@ -504,7 +523,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       outputFormat,
     } = await parseFormData(request);
 
-    if (!file) {
+    if (!file && !uploadedFileToken) {
       return NextResponse.json(
         {
           success: false,
@@ -517,36 +536,91 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Convert File to Buffer
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    // Process upload
     let uploadResult: UploadResult;
-    try {
-      uploadResult = await processUpload(
-        {
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          buffer,
-        },
-        UPLOAD_CONFIG
-      );
-    } catch (error) {
-      if (error && typeof error === "object" && "code" in error) {
+    if (uploadedFileToken) {
+      if (!CHUNKED_FILE_TOKEN_PATTERN.test(uploadedFileToken)) {
         return NextResponse.json(
-          {
-            success: false,
-            error: {
-              code: (error as { code?: string }).code ?? "UPLOAD_ERROR",
-              message: (error as { message?: string }).message ?? "Upload validation failed",
-            },
-          },
+          { success: false, error: { code: "INVALID_UPLOAD_TOKEN", message: "Invalid uploaded file token" } },
           { status: 400 }
         );
       }
-      throw error;
+
+      const stagedPath = join(CHUNK_ASSEMBLY_DIR, uploadedFileToken);
+      if (!isWithinSandbox(stagedPath, CHUNK_ASSEMBLY_DIR)) {
+        return NextResponse.json(
+          { success: false, error: { code: "SANDBOX_VIOLATION", message: "Invalid upload path" } },
+          { status: 400 }
+        );
+      }
+
+      const extension = uploadedFileToken.split(".").pop()?.toLowerCase() ?? "";
+      const allowedExtensions = UPLOAD_CONFIG.allowedExtensions as readonly string[];
+      if (!allowedExtensions.includes(extension)) {
+        return NextResponse.json(
+          { success: false, error: { code: "INVALID_EXTENSION", message: "Video format is not supported" } },
+          { status: 400 }
+        );
+      }
+
+      let stagedStats;
+      try {
+        stagedStats = await stat(stagedPath);
+      } catch {
+        return NextResponse.json(
+          { success: false, error: { code: "FILE_NOT_FOUND", message: "Uploaded file not found" } },
+          { status: 404 }
+        );
+      }
+
+      if (!stagedStats.isFile() || stagedStats.size === 0 || stagedStats.size > UPLOAD_CONFIG.maxSizeBytes) {
+        return NextResponse.json(
+          { success: false, error: { code: "FILE_TOO_LARGE", message: "Uploaded video exceeds the 200MB limit" } },
+          { status: 400 }
+        );
+      }
+
+      await mkdir(UPLOAD_CONFIG.uploadDir, { recursive: true });
+      const safeFilename = `${randomUUID()}.${extension}`;
+      const filepath = join(UPLOAD_CONFIG.uploadDir, safeFilename);
+      await rename(stagedPath, filepath);
+
+      uploadResult = {
+        filename: safeFilename,
+        filepath,
+        originalName: uploadedOriginalName?.slice(0, 255) || uploadedFileToken,
+        mimeType: uploadedMimeType || "application/octet-stream",
+        size: stagedStats.size,
+      };
+    } else {
+      // Small files retain the existing validated single-request path.
+      const arrayBuffer = await file!.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      try {
+        uploadResult = await processUpload(
+          {
+            name: file!.name,
+            type: file!.type,
+            size: file!.size,
+            buffer,
+          },
+          UPLOAD_CONFIG
+        );
+      } catch (error) {
+        if (error && typeof error === "object" && "code" in error) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: {
+                code: (error as { code?: string }).code ?? "UPLOAD_ERROR",
+                message: (error as { message?: string }).message ?? "Upload validation failed",
+              },
+            },
+            { status: 400 }
+          );
+        }
+        throw error;
+      }
     }
 
     // Validate input file
@@ -649,7 +723,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Create job for progress tracking
     const jobId = randomUUID();
-    createJob(jobId, TOOL_ID, uploadResult.filepath, file.size, videoInfo.duration);
+    createJob(jobId, TOOL_ID, uploadResult.filepath, uploadResult.size, videoInfo.duration);
 
     // Store all the data needed for background processing
     const compressionContext = {

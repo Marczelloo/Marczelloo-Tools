@@ -13,9 +13,9 @@
 // ============================================================================
 
 export interface UploadOptions {
-  /** Size of each chunk in bytes (default: 10MB) */
+  /** Size of each chunk in bytes (default: 16MB) */
   chunkSize?: number;
-  /** Number of concurrent chunk uploads (default: 3) */
+  /** Number of concurrent chunk uploads (default: 4) */
   concurrency?: number;
   /** Max retries per chunk (default: 3) */
   maxRetries?: number;
@@ -32,6 +32,10 @@ export interface UploadOptions {
   /** AbortSignal for cancellation */
   signal?: AbortSignal;
 }
+
+/** Safe defaults for uploads through the app's proxy/tunnel path. */
+export const DEFAULT_CHUNK_SIZE = 16 * 1024 * 1024;
+export const DEFAULT_UPLOAD_CONCURRENCY = 4;
 
 export interface UploadProgress {
   /** Upload session ID */
@@ -83,8 +87,8 @@ export async function chunkedUpload(
   options: UploadOptions = {}
 ): Promise<UploadResult> {
   const {
-    chunkSize = 5 * 1024 * 1024, // 5MB default (safe for most server configs)
-    concurrency = 3,
+    chunkSize = DEFAULT_CHUNK_SIZE,
+    concurrency = DEFAULT_UPLOAD_CONCURRENCY,
     maxRetries = 3,
     retryDelay = 1000,
     metadata,
@@ -144,23 +148,25 @@ export async function chunkedUpload(
     const end = Math.min(start + chunkSize, file.size);
     const chunk = file.slice(start, end);
 
-    const formData = new FormData();
-    formData.append("chunk", chunk);
-    formData.append("uploadId", uploadId);
-    formData.append("chunkIndex", chunkIndex.toString());
-    formData.append("totalChunks", totalChunks.toString());
-    formData.append("filename", file.name);
-    formData.append("mimeType", file.type || "application/octet-stream");
-    formData.append("totalSize", file.size.toString());
-    if (metadata) {
-      formData.append("metadata", JSON.stringify(metadata));
-    }
-
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         checkCancelled();
+
+        // Build a fresh body for every retry. A failed fetch may have consumed
+        // the previous FormData stream, which can make a retry upload empty.
+        const formData = new FormData();
+        formData.append("chunk", chunk);
+        formData.append("uploadId", uploadId);
+        formData.append("chunkIndex", chunkIndex.toString());
+        formData.append("totalChunks", totalChunks.toString());
+        formData.append("filename", file.name);
+        formData.append("mimeType", file.type || "application/octet-stream");
+        formData.append("totalSize", file.size.toString());
+        if (metadata) {
+          formData.append("metadata", JSON.stringify(metadata));
+        }
 
         const response = await fetch("/api/upload/chunk", {
           method: "POST",
@@ -179,11 +185,14 @@ export async function chunkedUpload(
           throw new Error(data.error?.message || "Upload failed");
         }
 
-        // Chunk uploaded successfully
-        uploadedBytes += chunk.size;
-        chunksCompleted++;
-        updateProgress();
-        onChunkComplete?.(chunkIndex, totalChunks);
+        // A retry can receive a duplicate response when the original response
+        // was lost. Do not count that chunk twice in progress/speed metrics.
+        if (!data.duplicate) {
+          uploadedBytes += chunk.size;
+          chunksCompleted++;
+          updateProgress();
+          onChunkComplete?.(chunkIndex, totalChunks);
+        }
 
         // Check if this was the final chunk that completed the upload
         if (data.complete && data.file) {
@@ -222,25 +231,29 @@ export async function chunkedUpload(
   updateProgress();
 
   try {
-    // Upload chunks in bounded batches. The API is idempotent per chunk, so
-    // retries remain safe while large uploads can use the configured limit.
+    // Keep a sliding window of workers busy. Waiting for a whole batch to
+    // finish creates head-of-line blocking when one chunk is slower than the
+    // others, which is especially visible through a tunnel.
     let finalResult: UploadResult | null = null;
     const concurrencyLimit = Math.max(1, Math.floor(concurrency));
 
-    for (let i = 0; i < totalChunks && !finalResult; i += concurrencyLimit) {
-      checkCancelled();
+    let nextChunkIndex = 0;
+    const worker = async (): Promise<UploadResult | null> => {
+      while (true) {
+        checkCancelled();
+        const chunkIndex = nextChunkIndex++;
+        if (chunkIndex >= totalChunks) return null;
 
-      const indexes = Array.from(
-        { length: Math.min(concurrencyLimit, totalChunks - i) },
-        (_, offset) => i + offset
-      );
-      console.log(`[ChunkedUpload] Uploading chunks ${i + 1}-${i + indexes.length}/${totalChunks}`);
-      const batchResults = await Promise.all(indexes.map((index) => uploadChunk(index)));
-      finalResult = batchResults.find((result): result is UploadResult => result !== null) ?? null;
-      if (finalResult) {
-        console.log("[ChunkedUpload] Got final result from server");
+        const result = await uploadChunk(chunkIndex);
+        if (result) return result;
       }
-    }
+    };
+
+    const workerCount = Math.min(concurrencyLimit, totalChunks);
+    const results = await Promise.all(
+      Array.from({ length: workerCount }, () => worker())
+    );
+    finalResult = results.find((result): result is UploadResult => result !== null) ?? null;
 
     if (finalResult) {
       console.log("[ChunkedUpload] Returning final result");
@@ -275,8 +288,8 @@ export async function resumeUpload(
   options: UploadOptions = {}
 ): Promise<UploadResult> {
   const {
-    chunkSize = 5 * 1024 * 1024, // 5MB default (safe for most server configs)
-    concurrency = 3,
+    chunkSize = DEFAULT_CHUNK_SIZE,
+    concurrency = DEFAULT_UPLOAD_CONCURRENCY,
     maxRetries = 3,
     retryDelay = 1000,
     metadata,
@@ -303,7 +316,10 @@ export async function resumeUpload(
 
   // Continue uploading missing chunks
   const totalBytes = file.size;
-  let uploadedBytes = receivedSet.size * chunkSize;
+  let uploadedBytes = Array.from(receivedSet).reduce((total, chunkIndex) => {
+    const start = chunkIndex * chunkSize;
+    return total + Math.max(0, Math.min(chunkSize, file.size - start));
+  }, 0);
   let chunksCompleted = receivedSet.size;
   const startTime = Date.now();
   let lastProgressTime = startTime;
@@ -345,23 +361,23 @@ export async function resumeUpload(
     const end = Math.min(start + chunkSize, file.size);
     const chunk = file.slice(start, end);
 
-    const formData = new FormData();
-    formData.append("chunk", chunk);
-    formData.append("uploadId", uploadId);
-    formData.append("chunkIndex", chunkIndex.toString());
-    formData.append("totalChunks", totalChunks.toString());
-    formData.append("filename", file.name);
-    formData.append("mimeType", file.type || "application/octet-stream");
-    formData.append("totalSize", file.size.toString());
-    if (metadata) {
-      formData.append("metadata", JSON.stringify(metadata));
-    }
-
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         checkCancelled();
+
+        const formData = new FormData();
+        formData.append("chunk", chunk);
+        formData.append("uploadId", uploadId);
+        formData.append("chunkIndex", chunkIndex.toString());
+        formData.append("totalChunks", totalChunks.toString());
+        formData.append("filename", file.name);
+        formData.append("mimeType", file.type || "application/octet-stream");
+        formData.append("totalSize", file.size.toString());
+        if (metadata) {
+          formData.append("metadata", JSON.stringify(metadata));
+        }
 
         const response = await fetch("/api/upload/chunk", {
           method: "POST",
@@ -380,10 +396,12 @@ export async function resumeUpload(
           throw new Error(data.error?.message || "Upload failed");
         }
 
-        uploadedBytes += chunk.size;
-        chunksCompleted++;
-        updateProgress();
-        onChunkComplete?.(chunkIndex, totalChunks);
+        if (!data.duplicate) {
+          uploadedBytes += chunk.size;
+          chunksCompleted++;
+          updateProgress();
+          onChunkComplete?.(chunkIndex, totalChunks);
+        }
 
         if (data.complete && data.file) {
           updateProgress("complete");
@@ -432,7 +450,8 @@ export async function resumeUpload(
       while (queueIndex < missingChunks.length && !finalResult) {
         checkCancelled();
 
-        if (uploadQueue.length >= concurrency) {
+        const concurrencyLimit = Math.max(1, Math.floor(concurrency));
+        if (uploadQueue.length >= concurrencyLimit) {
           const results = await Promise.race(uploadQueue.map(p => p.then(r => ({ p, r }))));
           if (results.r) {
             finalResult = results.r;

@@ -6,7 +6,7 @@
  */
 
 import { type NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir, readFile, unlink, readdir } from "fs/promises";
+import { writeFile, mkdir, readFile, unlink, readdir, open } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 import { randomUUID } from "crypto";
@@ -25,6 +25,7 @@ const UPLOAD_DIR = "./tmp/uploads/assembly";
 const MAX_CHUNK_SIZE = 50 * 1024 * 1024; // 50MB per chunk
 const MAX_TOTAL_SIZE = 10 * 1024 * 1024 * 1024; // 10GB total
 const CLEANUP_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 
 // ============================================================================
 // TYPES
@@ -47,6 +48,14 @@ interface ParsedMultipart {
 }
 
 const uploadLocks = new Map<string, Promise<void>>();
+let lastCleanupAt = 0;
+
+function scheduleCleanup(): void {
+  const now = Date.now();
+  if (now - lastCleanupAt < CLEANUP_INTERVAL_MS) return;
+  lastCleanupAt = now;
+  cleanupOldUploads().catch(() => {});
+}
 
 async function withUploadLock<T>(uploadId: string, operation: () => Promise<T>): Promise<T> {
   const previous = uploadLocks.get(uploadId) ?? Promise.resolve();
@@ -114,18 +123,25 @@ async function writeSession(session: UploadSession): Promise<void> {
 
 async function assembleFile(session: UploadSession): Promise<{ filepath: string; size: number }> {
   const fileId = randomUUID();
-  const ext = session.filename.includes(".") ? session.filename.split(".").pop() : "bin";
+  const rawExt = session.filename.includes(".") ? session.filename.split(".").pop() : "bin";
+  const ext = (rawExt || "bin").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10) || "bin";
   const filepath = join(UPLOAD_DIR, `${fileId}.${ext}`);
 
-  const chunks: Buffer[] = [];
-  for (let i = 0; i < session.totalChunks; i++) {
-    const chunkPath = getChunkPath(session.uploadId, i);
-    const chunkData = await readFile(chunkPath);
-    chunks.push(chunkData);
+  // Stream chunks into the final file one at a time. The previous
+  // Buffer.concat approach held the complete upload plus a second complete
+  // copy in memory, delaying the hand-off to the processing tool for large
+  // files.
+  const output = await open(filepath, "w");
+  let assembledSize = 0;
+  try {
+    for (let i = 0; i < session.totalChunks; i++) {
+      const chunkData = await readFile(getChunkPath(session.uploadId, i));
+      await output.write(chunkData);
+      assembledSize += chunkData.length;
+    }
+  } finally {
+    await output.close();
   }
-
-  const assembledBuffer = Buffer.concat(chunks);
-  await writeFile(filepath, assembledBuffer);
 
   // Cleanup chunks
   for (let i = 0; i < session.totalChunks; i++) {
@@ -137,7 +153,7 @@ async function assembleFile(session: UploadSession): Promise<{ filepath: string;
     await unlink(getSessionPath(session.uploadId));
   } catch { /* ignore */ }
 
-  return { filepath, size: assembledBuffer.length };
+  return { filepath, size: assembledSize };
 }
 
 async function cleanupOldUploads(): Promise<void> {
@@ -248,7 +264,9 @@ async function parseMultipartUpload(request: NextRequest): Promise<ParsedMultipa
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   await ensureDirs();
-  cleanupOldUploads().catch(() => {});
+  // Do not scan the whole chunks directory for every chunk request. On large
+  // uploads that creates avoidable disk contention on the Raspberry Pi.
+  scheduleCleanup();
 
   try {
     const { file, fields } = await parseMultipartUpload(request);

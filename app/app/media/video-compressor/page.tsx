@@ -8,6 +8,7 @@ import { TactileDropzone } from "@/components/tool-ui/TactileDropzone";
 import { TactileFormatGrid, type FormatOption } from "@/components/tool-ui/TactileFormatGrid";
 import { TactileButton } from "@/components/tool-ui/TactileButton";
 import { Tabs } from "@/components/ui/tabs";
+import { chunkedUpload } from "@/lib/upload/chunked-upload";
 
 // ============================================================================
 // TYPES
@@ -77,6 +78,8 @@ const OUTPUT_FORMATS: readonly FormatOption[] = [
   { value: "webm", label: "WebM", desc: "VP9" },
   { value: "mkv", label: "MKV", desc: "H.265" },
 ] as const;
+
+const CHUNKED_UPLOAD_THRESHOLD = 50 * 1024 * 1024;
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -198,7 +201,36 @@ function VideoCompressorInner(): React.JSX.Element {
     setProgress({ progress: 0, status: "starting", message: "Initializing compression..." });
 
     const formData = new FormData();
-    formData.append("file", file);
+
+    // Keep small files on the simple path, but avoid sending large videos as
+    // one request through Next.js and Cloudflare Tunnel. The chunked upload
+    // is resumable/retryable and the compressor receives only a file token.
+    if (file.size > CHUNKED_UPLOAD_THRESHOLD) {
+      try {
+        const uploadResult = await chunkedUpload(file, {
+          onProgress: (uploadProgress) => {
+            setProgress({
+              progress: uploadProgress.percentage,
+              status: "uploading",
+              message: `Uploading video... ${Math.round(uploadProgress.percentage)}%`,
+            });
+          },
+        });
+
+        formData.append("uploadedFileToken", uploadResult.file.filename);
+        formData.append("uploadedOriginalName", file.name);
+        formData.append("uploadedMimeType", file.type || "application/octet-stream");
+      } catch {
+        setError("Video upload failed. Please try again.");
+        setLoading(false);
+        setProgress(null);
+        return;
+      }
+    } else {
+      formData.append("file", file);
+    }
+
+    setProgress({ progress: 0, status: "starting", message: "Initializing compression..." });
     formData.append("mode", mode);
     formData.append("outputFormat", outputFormat);
 
