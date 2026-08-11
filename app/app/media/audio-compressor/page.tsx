@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { PageHeader, Surface, Container } from "@/components/layout";
 import { ToolProvider, useTool } from "@/lib/tool-context";
 import type { ToolDefinition } from "@/lib/featureFlags";
@@ -8,6 +8,8 @@ import { TactileDropzone } from "@/components/tool-ui/TactileDropzone";
 import { TactileFormatGrid, type FormatOption } from "@/components/tool-ui/TactileFormatGrid";
 import { TactileButton } from "@/components/tool-ui/TactileButton";
 import { Tabs } from "@/components/ui/tabs";
+import { LocalProcessingSwitch } from "@/components/tool-ui/LocalProcessingSwitch";
+import { compressAudioLocally } from "@/lib/client/local-media-compression";
 
 // ============================================================================
 // TYPES
@@ -61,6 +63,13 @@ function estimateAdvancedSize(originalSize: number, bitrate: string): number {
   const ratio = Math.min(1.0, Math.max(0.2, bitrateNum / 320));
 
   return Math.round(originalSize * ratio);
+}
+
+function getTargetBitrate(mode: CompressionMode, preset: SimplePreset, bitrate: string): number {
+  const value = mode === "simple"
+    ? { smallest: 64, balanced: 128, best: 192 }[preset]
+    : Math.min(320, Math.max(32, parseInt(bitrate, 10) || 128));
+  return value * 1000;
 }
 
 // ============================================================================
@@ -121,6 +130,17 @@ function AudioCompressorInner(): React.JSX.Element {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CompressionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [useLocalProcessing, setUseLocalProcessing] = useState(true);
+  const localDownloadUrlRef = useRef<string | null>(null);
+
+  const releaseLocalDownload = useCallback(() => {
+    if (localDownloadUrlRef.current) {
+      URL.revokeObjectURL(localDownloadUrlRef.current);
+      localDownloadUrlRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => releaseLocalDownload, [releaseLocalDownload]);
 
   // Calculate estimated size based on mode
   const estimatedSize = file
@@ -136,6 +156,31 @@ function AudioCompressorInner(): React.JSX.Element {
     setLoading(true);
     setError(null);
     setResult(null);
+
+    if (useLocalProcessing && outputFormat === "ogg") {
+      try {
+        const compressedFile = await compressAudioLocally(file, {
+          audioBitsPerSecond: getTargetBitrate(mode, preset, bitrate),
+          sampleRate: parseInt(mode === "advanced" ? sampleRate : preset === "smallest" ? "22050" : preset === "best" ? "48000" : "44100", 10),
+        });
+        const downloadUrl = URL.createObjectURL(compressedFile);
+        releaseLocalDownload();
+        localDownloadUrlRef.current = downloadUrl;
+        setResult({
+          input: { filename: file.name, size: file.size },
+          output: {
+            filename: compressedFile.name,
+            downloadUrl,
+            size: compressedFile.size,
+            compressionRatio: `${Math.round((1 - compressedFile.size / file.size) * 100)}%`,
+          },
+        });
+        setLoading(false);
+        return;
+      } catch {
+        // MP3/AAC and browsers without a compatible recorder use the server.
+      }
+    }
 
     const formData = new FormData();
     formData.append("file", file);
@@ -170,9 +215,10 @@ function AudioCompressorInner(): React.JSX.Element {
       setError("Failed to connect to server");
       setLoading(false);
     }
-  }, [file, mode, preset, outputFormat, bitrate, sampleRate, channels]);
+  }, [file, mode, preset, outputFormat, bitrate, sampleRate, channels, releaseLocalDownload, useLocalProcessing]);
 
   const resetState = useCallback(() => {
+    releaseLocalDownload();
     setFile(null);
     setResult(null);
     setError(null);
@@ -183,7 +229,7 @@ function AudioCompressorInner(): React.JSX.Element {
     setBitrate("128");
     setSampleRate("44100");
     setChannels("2");
-  }, []);
+  }, [releaseLocalDownload]);
 
   return (
     <div className="min-h-full">
@@ -206,6 +252,7 @@ function AudioCompressorInner(): React.JSX.Element {
               </legend>
               <TactileDropzone
                 onFileSelect={(selectedFile) => {
+                  releaseLocalDownload();
                   setFile(selectedFile);
                   setError(null);
                   setResult(null);
@@ -216,6 +263,13 @@ function AudioCompressorInner(): React.JSX.Element {
                 fileTypesLabel="MP3, WAV, AAC, OGG, FLAC"
               />
             </fieldset>
+
+            <LocalProcessingSwitch
+              checked={useLocalProcessing}
+              onChange={setUseLocalProcessing}
+              disabled={loading}
+              description="Local audio encoding is available for OGG in compatible browsers. MP3/AAC automatically use the server."
+            />
 
             {/* Step 2: Mode Tabs */}
             <fieldset className="mb-6">

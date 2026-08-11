@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { PageHeader, Surface, Container } from "@/components/layout";
 import { ToolProvider, useTool } from "@/lib/tool-context";
 import type { ToolDefinition } from "@/lib/featureFlags";
 import { TactileDropzone } from "@/components/tool-ui/TactileDropzone";
 import { TactileFormatGrid, type FormatOption } from "@/components/tool-ui/TactileFormatGrid";
 import { TactileButton } from "@/components/tool-ui/TactileButton";
+import { compressImageLocally } from "@/lib/client/local-image-compression";
 
 // ============================================================================
 // TYPES
@@ -58,12 +59,50 @@ function ImageCompressorInner(): React.JSX.Element {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CompressionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [useLocalProcessing, setUseLocalProcessing] = useState(true);
+  const localDownloadUrlRef = useRef<string | null>(null);
+
+  const releaseLocalDownload = useCallback(() => {
+    if (localDownloadUrlRef.current) {
+      URL.revokeObjectURL(localDownloadUrlRef.current);
+      localDownloadUrlRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => releaseLocalDownload, [releaseLocalDownload]);
 
   const handleCompress = useCallback(async () => {
     if (!file) return;
 
     setLoading(true);
     setError(null);
+
+    if (useLocalProcessing) {
+      try {
+        const compressedFile = await compressImageLocally(file, {
+          quality,
+          outputFormat: format as "jpeg" | "png" | "webp",
+        });
+        const downloadUrl = URL.createObjectURL(compressedFile);
+        releaseLocalDownload();
+        localDownloadUrlRef.current = downloadUrl;
+
+        setResult({
+          input: { size: file.size },
+          output: {
+            filename: compressedFile.name,
+            downloadUrl,
+            size: compressedFile.size,
+            compressionRatio: `${Math.round((1 - compressedFile.size / file.size) * 100)}%`,
+          },
+        });
+        setLoading(false);
+        return;
+      } catch {
+        // Fall back to the server path if the browser cannot decode or encode
+        // this particular image format.
+      }
+    }
 
     const formData = new FormData();
     formData.append("file", file);
@@ -90,7 +129,7 @@ function ImageCompressorInner(): React.JSX.Element {
       setError("Failed to connect to server");
       setLoading(false);
     }
-  }, [file, quality, format]);
+  }, [file, quality, format, releaseLocalDownload, useLocalProcessing]);
 
   return (
     <div className="min-h-full">
@@ -113,6 +152,7 @@ function ImageCompressorInner(): React.JSX.Element {
               </legend>
               <TactileDropzone
                 onFileSelect={(selectedFile) => {
+                  releaseLocalDownload();
                   setFile(selectedFile);
                   setError(null);
                   setResult(null);
@@ -181,6 +221,23 @@ function ImageCompressorInner(): React.JSX.Element {
               </div>
             </fieldset>
 
+            {/* Local Processing */}
+            <label className="mb-6 flex items-start gap-3 rounded-md border border-white/10 bg-zinc-900/40 p-4 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useLocalProcessing}
+                onChange={(event) => setUseLocalProcessing(event.target.checked)}
+                disabled={loading}
+                className="mt-1 h-4 w-4 accent-white"
+              />
+              <span>
+                <span className="block text-sm font-medium text-white">Process on this computer</span>
+                <span className="block text-xs text-zinc-500 mt-1">
+                  The image stays in your browser and is not uploaded. Server fallback is used automatically if needed.
+                </span>
+              </span>
+            </label>
+
             {/* Error Display */}
             {error && (
               <div className="mb-6 p-4 bg-zinc-900/50 border border-zinc-700 rounded-md">
@@ -224,6 +281,7 @@ function ImageCompressorInner(): React.JSX.Element {
             <div className="flex gap-4">
               <TactileButton
                 onClick={result ? () => {
+                  releaseLocalDownload();
                   setFile(null);
                   setResult(null);
                   setError(null);
@@ -240,6 +298,7 @@ function ImageCompressorInner(): React.JSX.Element {
                 <TactileButton
                   variant="secondary"
                   onClick={() => {
+                    releaseLocalDownload();
                     setFile(null);
                     setResult(null);
                     setError(null);

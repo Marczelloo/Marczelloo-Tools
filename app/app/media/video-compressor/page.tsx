@@ -9,6 +9,8 @@ import { TactileFormatGrid, type FormatOption } from "@/components/tool-ui/Tacti
 import { TactileButton } from "@/components/tool-ui/TactileButton";
 import { Tabs } from "@/components/ui/tabs";
 import { chunkedUpload } from "@/lib/upload/chunked-upload";
+import { LocalProcessingSwitch } from "@/components/tool-ui/LocalProcessingSwitch";
+import { compressVideoLocally } from "@/lib/client/local-media-compression";
 
 // ============================================================================
 // TYPES
@@ -143,6 +145,30 @@ function estimateAdvancedSize(
   return Math.round(originalSize * baseRatio);
 }
 
+function parseBitrateToBitsPerSecond(bitrate: string): number {
+  const match = bitrate.match(/^(\d+(?:\.\d+)?)([kMG])?$/i);
+  if (!match) return 5_000_000;
+  const value = parseFloat(match[1] ?? "5");
+  const unit = (match[2] ?? "M").toLowerCase();
+  const multiplier = unit === "k" ? 1_000 : unit === "g" ? 1_000_000_000 : 1_000_000;
+  return Math.max(250_000, Math.round(value * multiplier));
+}
+
+function getLocalVideoBitrate(
+  mode: CompressionMode,
+  preset: SimplePreset,
+  compressionLevel: number,
+  bitrate: string
+): number {
+  if (mode === "simple") {
+    return { smallest: 1_000_000, balanced: 3_000_000, best: 8_000_000 }[preset];
+  }
+
+  const requested = parseBitrateToBitsPerSecond(bitrate);
+  const qualityFactor = 0.55 + compressionLevel / 200;
+  return Math.round(requested * qualityFactor);
+}
+
 // ============================================================================
 // VIDEO COMPRESSOR COMPONENT
 // ============================================================================
@@ -172,9 +198,18 @@ function VideoCompressorInner(): React.JSX.Element {
   const [result, setResult] = useState<CompressionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<ProgressState | null>(null);
+  const [useLocalProcessing, setUseLocalProcessing] = useState(true);
+  const localDownloadUrlRef = useRef<string | null>(null);
 
   // SSE connection ref
   const eventSourceRef = useRef<EventSource | null>(null);
+
+  const releaseLocalDownload = useCallback(() => {
+    if (localDownloadUrlRef.current) {
+      URL.revokeObjectURL(localDownloadUrlRef.current);
+      localDownloadUrlRef.current = null;
+    }
+  }, []);
 
   // Calculate estimated size based on mode
   const estimatedSize = file
@@ -190,8 +225,9 @@ function VideoCompressorInner(): React.JSX.Element {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
       }
+      releaseLocalDownload();
     };
-  }, []);
+  }, [releaseLocalDownload]);
 
   const handleCompress = useCallback(async () => {
     if (!file) return;
@@ -199,6 +235,43 @@ function VideoCompressorInner(): React.JSX.Element {
     setLoading(true);
     setError(null);
     setProgress({ progress: 0, status: "starting", message: "Initializing compression..." });
+
+    // Browser MediaRecorder can produce WebM locally without uploading the
+    // source file. MP4/MKV and unsupported browsers continue through FFmpeg on
+    // the server, so the user can compare both paths with the same controls.
+    if (useLocalProcessing && outputFormat === "webm") {
+      try {
+        const compressedFile = await compressVideoLocally(file, {
+          videoBitsPerSecond: getLocalVideoBitrate(mode, preset, compressionLevel, bitrate),
+          onProgress: (localProgress) => {
+            setProgress({
+              progress: localProgress.progress,
+              status: "processing locally",
+              message: localProgress.message,
+            });
+          },
+        });
+        const downloadUrl = URL.createObjectURL(compressedFile);
+        releaseLocalDownload();
+        localDownloadUrlRef.current = downloadUrl;
+        setResult({
+          input: { filename: file.name, size: file.size },
+          output: {
+            filename: compressedFile.name,
+            downloadUrl,
+            format: "webm",
+            size: compressedFile.size,
+          },
+          compressionRatio: `${Math.round((1 - compressedFile.size / file.size) * 100)}%`,
+          duration: 0,
+        });
+        setLoading(false);
+        setProgress({ progress: 100, status: "completed", message: "Done locally" });
+        return;
+      } catch {
+        // Fall through to the existing chunked/server path.
+      }
+    }
 
     const formData = new FormData();
 
@@ -323,7 +396,7 @@ function VideoCompressorInner(): React.JSX.Element {
       setLoading(false);
       setProgress(null);
     }
-  }, [file, mode, preset, compressionLevel, bitrate, fps, resolution, outputFormat, twoPass]);
+  }, [file, mode, preset, compressionLevel, bitrate, fps, resolution, outputFormat, twoPass, releaseLocalDownload, useLocalProcessing]);
 
   return (
     <div className="min-h-full">
@@ -356,6 +429,13 @@ function VideoCompressorInner(): React.JSX.Element {
                 fileTypesLabel="MP4, WebM, MOV"
               />
             </fieldset>
+
+            <LocalProcessingSwitch
+              checked={useLocalProcessing}
+              onChange={setUseLocalProcessing}
+              disabled={loading}
+              description="Local video encoding outputs WebM in compatible browsers. MP4/MKV or unsupported browsers use the server."
+            />
 
             {/* Step 2: Mode Tabs */}
             <fieldset className="mb-6">
@@ -603,6 +683,7 @@ function VideoCompressorInner(): React.JSX.Element {
             <div className="flex gap-4">
               <TactileButton
                 onClick={result ? () => {
+                  releaseLocalDownload();
                   setFile(null);
                   setResult(null);
                   setError(null);
@@ -619,6 +700,7 @@ function VideoCompressorInner(): React.JSX.Element {
                 <TactileButton
                   variant="secondary"
                   onClick={() => {
+                    releaseLocalDownload();
                     setFile(null);
                     setResult(null);
                     setError(null);

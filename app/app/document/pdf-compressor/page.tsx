@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { PageHeader, Surface, Container } from "@/components/layout";
 import { ToolProvider, useTool } from "@/lib/tool-context";
 import type { ToolDefinition } from "@/lib/featureFlags";
 import { TactileDropzone } from "@/components/tool-ui/TactileDropzone";
 import { TactileFormatGrid, type FormatOption } from "@/components/tool-ui/TactileFormatGrid";
 import { TactileButton } from "@/components/tool-ui/TactileButton";
+import { LocalProcessingSwitch } from "@/components/tool-ui/LocalProcessingSwitch";
+import { compressPdfLocally } from "@/lib/client/local-pdf-compression";
 
 function formatSize(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -34,12 +36,47 @@ function PdfCompressorInner(): React.JSX.Element {
     };
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [useLocalProcessing, setUseLocalProcessing] = useState(true);
+  const localDownloadUrlRef = useRef<string | null>(null);
+
+  const releaseLocalDownload = useCallback(() => {
+    if (localDownloadUrlRef.current) {
+      URL.revokeObjectURL(localDownloadUrlRef.current);
+      localDownloadUrlRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => releaseLocalDownload, [releaseLocalDownload]);
 
   const handleCompress = useCallback(async () => {
     if (!file) return;
 
     setLoading(true);
     setError(null);
+
+    if (useLocalProcessing) {
+      try {
+        const compressedFile = await compressPdfLocally(file, compression as "low" | "medium" | "high");
+        const downloadUrl = URL.createObjectURL(compressedFile);
+        releaseLocalDownload();
+        localDownloadUrlRef.current = downloadUrl;
+        setResult({
+          compression: {
+            input: { size: file.size },
+            output: {
+              filename: compressedFile.name,
+              downloadUrl,
+              size: compressedFile.size,
+              compressionRatio: `${Math.round((1 - compressedFile.size / file.size) * 100)}%`,
+            },
+          },
+        });
+        setLoading(false);
+        return;
+      } catch {
+        // Encrypted or unsupported PDFs fall back to the server compressor.
+      }
+    }
 
     const formData = new FormData();
     formData.append("file", file);
@@ -65,7 +102,7 @@ function PdfCompressorInner(): React.JSX.Element {
       setError("Failed to connect to server");
       setLoading(false);
     }
-  }, [file, compression]);
+  }, [file, compression, releaseLocalDownload, useLocalProcessing]);
 
   return (
     <div className="min-h-full">
@@ -88,6 +125,7 @@ function PdfCompressorInner(): React.JSX.Element {
               </legend>
               <TactileDropzone
                 onFileSelect={(selectedFile) => {
+                  releaseLocalDownload();
                   setFile(selectedFile);
                   setError(null);
                   setResult(null);
@@ -98,6 +136,13 @@ function PdfCompressorInner(): React.JSX.Element {
                 fileTypesLabel="PDF"
               />
             </fieldset>
+
+            <LocalProcessingSwitch
+              checked={useLocalProcessing}
+              onChange={setUseLocalProcessing}
+              disabled={loading}
+              description="Rewrites the PDF in your browser without uploading it. Unsupported or encrypted PDFs fall back to the server."
+            />
 
             {/* Compression Level */}
             <fieldset className="mb-6">
@@ -157,6 +202,7 @@ function PdfCompressorInner(): React.JSX.Element {
             <div className="flex gap-4">
               <TactileButton
                 onClick={result ? () => {
+                  releaseLocalDownload();
                   setFile(null);
                   setResult(null);
                   setError(null);
@@ -173,6 +219,7 @@ function PdfCompressorInner(): React.JSX.Element {
                 <TactileButton
                   variant="secondary"
                   onClick={() => {
+                    releaseLocalDownload();
                     setFile(null);
                     setResult(null);
                     setError(null);
